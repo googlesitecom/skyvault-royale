@@ -1,0 +1,252 @@
+     1→/home/z/my-project/skyvault/third_party/stb/stb_image.h:3328:      // discard the extra data until colorspace conversion
+     2→/home/z/my-project/skyvault/third_party/stb/stb_image.h:4414:      stbi__zreceive(a, a->num_bits & 7); // discard
+     3→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5352:   stbi__get32le(s); // discard filesize
+     4→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5353:   stbi__get16le(s); // discard reserved
+     5→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5354:   stbi__get16le(s); // discard reserved
+     6→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5355:   stbi__get32le(s); // discard data offset
+     7→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5452:   stbi__get32le(s); // discard filesize
+     8→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5453:   stbi__get16le(s); // discard reserved
+     9→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5454:   stbi__get16le(s); // discard reserved
+    10→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5477:      stbi__get32le(s); // discard sizeof
+    11→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5478:      stbi__get32le(s); // discard hres
+    12→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5479:      stbi__get32le(s); // discard vres
+    13→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5480:      stbi__get32le(s); // discard colorsused
+    14→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5481:      stbi__get32le(s); // discard max important
+    15→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5516:         stbi__get32le(s); // discard color space
+    16→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5518:            stbi__get32le(s); // discard color space parameters
+    17→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5520:            stbi__get32le(s); // discard rendering intent
+    18→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5521:            stbi__get32le(s); // discard offset of profile data
+    19→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5522:            stbi__get32le(s); // discard size of profile data
+    20→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5523:            stbi__get32le(s); // discard reserved
+    21→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5759:    stbi__get8(s);                   // discard Offset
+    22→/home/z/my-project/skyvault/third_party/stb/stb_image.h:5824:   stbi__get8(s);      //   discard Offset
+    23→/home/z/my-project/skyvault/third_party/stb/stb_image.h:6333:// See http://ozviz.wasp.uwa.edu.au/~pbourke/dataformats/softimagepic/
+    24→/home/z/my-project/skyvault/game/Game.h:43:enum class WeaponKind : u8 { Pickaxe = 0, Shotgun, SMG, Scar, Sniper, Count };
+    25→/home/z/my-project/skyvault/game/Game.h:45:enum class Rarity : u8 { Common = 0, Uncommon, Rare, Epic, Legendary };
+    26→/home/z/my-project/skyvault/game/Game.h:64:    [[nodiscard]] bool valid() const { return kind != WeaponKind::Pickaxe; }
+    27→/home/z/my-project/skyvault/game/Game.h:77:    WeaponKind weapon = WeaponKind::Scar;
+    28→/home/z/my-project/skyvault/game/Game.h:91:    [[nodiscard]] bool operator==(const BuildPiece& o) const {
+    29→/home/z/my-project/skyvault/game/Game.h:115:    [[nodiscard]] bool init(Renderer* renderer);
+    30→/home/z/my-project/skyvault/game/Game.h:121:    [[nodiscard]] State state() const { return m_state; }
+    31→/home/z/my-project/skyvault/game/Game.h:124:    [[nodiscard]] vec3 debugPos() const { return m_playerPos; }
+    32→/home/z/my-project/skyvault/game/Game.h:153:    [[nodiscard]] WeaponDef weaponDef(WeaponKind k) const;
+    33→/home/z/my-project/skyvault/game/Game.h:154:    [[nodiscard]] static vec4 rarityColor(u8 r);
+    34→/home/z/my-project/skyvault/game/Game.h:158:    [[nodiscard]] static mat4 weaponModelMatrix(WeaponKind k, const mat4& playerMat);
+    35→/home/z/my-project/skyvault/game/Game.h:159:    [[nodiscard]] BuildPiece ghostPiece() const;
+    36→/home/z/my-project/skyvault/game/Game.h:160:    [[nodiscard]] bool buildPlacementValid(const BuildPiece& p) const;
+    37→/home/z/my-project/skyvault/game/Game.h:163:    [[nodiscard]] i32 aliveCount() const;
+    38→/home/z/my-project/skyvault/game/Game.h:169:    [[nodiscard]] Mesh makeTreeMesh();
+    39→/home/z/my-project/skyvault/game/Game.h:170:    [[nodiscard]] Mesh makeRockMesh();
+    40→/home/z/my-project/skyvault/game/Game.h:171:    [[nodiscard]] Mesh makeChestMesh();
+    41→/home/z/my-project/skyvault/game/Game.h:172:    [[nodiscard]] Mesh makeUnitCube();
+    42→/home/z/my-project/skyvault/game/Game.h:174:    [[nodiscard]] std::pair<vec3, vec3> buildAabb(const BuildPiece& p) const;
+    43→/home/z/my-project/skyvault/game/Game.h:189:    GltfModel m_modelJonesy, m_modelPickaxe, m_modelShotgun, m_modelSMG,
+    44→/home/z/my-project/skyvault/game/Game.h:190:              m_modelScar, m_modelSniper;
+    45→/home/z/my-project/skyvault/game/GameRender.cpp:147:    // bots (modelo GLTF Jonesy, cull por distancia/frustum)
+    46→/home/z/my-project/skyvault/game/GameRender.cpp:148:    if (m_modelJonesy.valid()) {
+    47→/home/z/my-project/skyvault/game/GameRender.cpp:155:            for (const auto& prim : m_modelJonesy.prims) {
+    48→/home/z/my-project/skyvault/game/GameRender.cpp:180:        if (m_modelJonesy.valid()) {
+    49→/home/z/my-project/skyvault/game/GameRender.cpp:183:            for (const auto& prim : m_modelJonesy.prims)
+    50→/home/z/my-project/skyvault/game/GameRender.cpp:194:                case WeaponKind::Scar:     model = &m_modelScar; break;
+    51→/home/z/my-project/skyvault/game/Game.cpp:34:        case WeaponKind::Scar:
+    52→/home/z/my-project/skyvault/game/Game.cpp:35:            d.name = "Fusil Escarabajo"; d.damage = 31; d.headMult = 1.7f;
+    53→/home/z/my-project/skyvault/game/Game.cpp:72:        { &m_modelJonesy,  "assets/models/jonesy.glb",                          1.85f },
+    54→/home/z/my-project/skyvault/game/Game.cpp:73:        { &m_modelPickaxe, "assets/models/fortnite_pickaxe.glb",                0.95f },
+    55→/home/z/my-project/skyvault/game/Game.cpp:74:        { &m_modelShotgun, "assets/models/fortnites_pump_shotgun.glb",          0.90f },
+    56→/home/z/my-project/skyvault/game/Game.cpp:75:        { &m_modelSMG,     "assets/models/twin_mag_smg_-_fortnite_pbr.glb",     0.55f },
+    57→/home/z/my-project/skyvault/game/Game.cpp:76:        { &m_modelScar,    "assets/models/scar_-_fortnite_gun.glb",             0.80f },
+    58→/home/z/my-project/skyvault/game/Game.cpp:77:        { &m_modelSniper,  "assets/models/heavy_sniper_rifle_fortnite_item.glb", 1.35f },
+    59→/home/z/my-project/skyvault/game/Game.cpp:106:    m_modelJonesy.destroy(); m_modelPickaxe.destroy(); m_modelShotgun.destroy();
+    60→/home/z/my-project/skyvault/game/Game.cpp:107:    m_modelSMG.destroy(); m_modelScar.destroy(); m_modelSniper.destroy();
+    61→/home/z/my-project/skyvault/README.md:3:Battle royale 3D estilo Fortnite con **motor 100% propio en C++20** (sin engines, sin
+    62→/home/z/my-project/skyvault/README.md:64:- Animación esquelética pendiente (Jonesy en pose de rig); skinning en el buffer listo
+    63→/home/z/my-project/skyvault/engine/ecs/ECS.h:20:[[nodiscard]] constexpr u32 entityIndex(Entity e) { return e & EntityIndexMask; }
+    64→/home/z/my-project/skyvault/engine/ecs/ECS.h:21:[[nodiscard]] constexpr u32 entityGen(Entity e)   { return e >> EntityGenShift; }
+    65→/home/z/my-project/skyvault/engine/ecs/ECS.h:22:[[nodiscard]] constexpr Entity makeEntity(u32 index, u32 gen) {
+    66→/home/z/my-project/skyvault/engine/ecs/ECS.h:33:[[nodiscard]] u32 componentTypeIndex() {
+    67→/home/z/my-project/skyvault/engine/ecs/ECS.h:45:    [[nodiscard]] Entity create();
+    68→/home/z/my-project/skyvault/engine/ecs/ECS.h:47:    [[nodiscard]] bool valid(Entity e) const;
+    69→/home/z/my-project/skyvault/engine/ecs/ECS.h:48:    [[nodiscard]] usize size() const { return aliveCount; }
+    70→/home/z/my-project/skyvault/engine/ecs/ECS.h:53:    [[nodiscard]] C& emplace(Entity e, Args&&... args);
+    71→/home/z/my-project/skyvault/engine/ecs/ECS.h:54:    template <class C> [[nodiscard]] bool has(Entity e) const;
+    72→/home/z/my-project/skyvault/engine/ecs/ECS.h:55:    template <class C> [[nodiscard]] C& get(Entity e);
+    73→/home/z/my-project/skyvault/engine/ecs/ECS.h:56:    template <class C> [[nodiscard]] const C& get(Entity e) const;
+    74→/home/z/my-project/skyvault/engine/ecs/ECS.h:57:    template <class C> [[nodiscard]] C* find(Entity e);
+    75→/home/z/my-project/skyvault/engine/ecs/ECS.h:59:    template <class C> [[nodiscard]] usize count() const;
+    76→/home/z/my-project/skyvault/engine/ecs/ECS.h:66:    template <class C> [[nodiscard]] const std::vector<Entity>* entitiesOf() const;
+    77→/home/z/my-project/skyvault/engine/ecs/ECS.h:84:        [[nodiscard]] bool has(Entity e) const {
+    78→/home/z/my-project/skyvault/engine/ecs/ECS.h:88:        [[nodiscard]] C& get(Entity e) { return components[sparse[entityIndex(e)]]; }
+    79→/home/z/my-project/skyvault/engine/ecs/ECS.h:114:    [[nodiscard]] Pool<C>* poolFor(bool createIfMissing) {
+    80→/home/z/my-project/skyvault/engine/math/Math.h:36:template <class T> [[nodiscard]] constexpr T clamp01(T v) { return v < T(0) ? T(0) : (v > T(1) ? T(1) : v); }
+    81→/home/z/my-project/skyvault/engine/math/Math.h:37:template <class T> [[nodiscard]] constexpr T lerpT(T a, T b, T t) { return a + (b - a) * t; }
+    82→/home/z/my-project/skyvault/engine/math/Math.h:38:[[nodiscard]] f32 smoothstep(f32 e0, f32 e1, f32 x);
+    83→/home/z/my-project/skyvault/engine/math/Math.h:39:[[nodiscard]] f32 smootherstep(f32 e0, f32 e1, f32 x);
+    84→/home/z/my-project/skyvault/engine/math/Math.h:40:[[nodiscard]] f32 damp(f32 current, f32 target, f32 rate, f32 dt);   // interpolacion exponencial
+    85→/home/z/my-project/skyvault/engine/math/Math.h:41:[[nodiscard]] f32 moveTowards(f32 current, f32 target, f32 maxDelta);
+    86→/home/z/my-project/skyvault/engine/math/Math.h:42:[[nodiscard]] f32 remap(f32 v, f32 a0, f32 a1, f32 b0, f32 b1);
+    87→/home/z/my-project/skyvault/engine/math/Math.h:43:[[nodiscard]] f32 wrapAngle(f32 a);                                  // [-PI, PI]
+    88→/home/z/my-project/skyvault/engine/math/Math.h:44:[[nodiscard]] f32 easeOutCubic(f32 t);
+    89→/home/z/my-project/skyvault/engine/math/Math.h:45:[[nodiscard]] f32 easeInOutCubic(f32 t);
+    90→/home/z/my-project/skyvault/engine/math/Math.h:46:[[nodiscard]] f32 easeOutBack(f32 t);
+    91→/home/z/my-project/skyvault/engine/math/Math.h:47:[[nodiscard]] f32 bounceOut(f32 t);
+    92→/home/z/my-project/skyvault/engine/math/Math.h:52:[[nodiscard]] mat4 composeTRS(vec3 pos, quat rot, vec3 scale);
+    93→/home/z/my-project/skyvault/engine/math/Math.h:53:[[nodiscard]] mat4 perspectiveFov(f32 fovYRadians, f32 aspect, f32 zNear, f32 zFar);
+    94→/home/z/my-project/skyvault/engine/math/Math.h:54:[[nodiscard]] mat4 orthoBox(f32 l, f32 r, f32 b, f32 t, f32 zNear, f32 zFar);
+    95→/home/z/my-project/skyvault/engine/math/Math.h:55:[[nodiscard]] vec3 forwardVector(quat q);   // -Z de la rotacion
+    96→/home/z/my-project/skyvault/engine/math/Math.h:56:[[nodiscard]] vec3 rightVector(quat q);
+    97→/home/z/my-project/skyvault/engine/math/Math.h:57:[[nodiscard]] quat quatLookDir(vec3 dir);   // orientacion que mira a dir (up=+Y)
+    98→/home/z/my-project/skyvault/engine/math/Math.h:62:[[nodiscard]] constexpr u32 packRGBA(u8 r, u8 g, u8 b, u8 a) {
+    99→/home/z/my-project/skyvault/engine/math/Math.h:65:[[nodiscard]] constexpr u32 packRGB(u8 r, u8 g, u8 b) { return packRGBA(r, g, b, 255u); }
+   100→/home/z/my-project/skyvault/engine/math/Math.h:70:[[nodiscard]] constexpr u32 rgbaToVec4Color(u32 c) { return c; } // util para UI
+   101→/home/z/my-project/skyvault/engine/math/Math.h:71:[[nodiscard]] vec3 rgbToHsv(vec3 rgb);
+   102→/home/z/my-project/skyvault/engine/math/Math.h:72:[[nodiscard]] vec3 hsvToRgb(vec3 hsv);
+   103→/home/z/my-project/skyvault/engine/math/Math.h:73:[[nodiscard]] constexpr u32 withAlpha(u32 rgb, u8 a) { return (rgb & 0x00FFFFFFu) | (static_cast<u32>(a) << 24); }
+   104→/home/z/my-project/skyvault/engine/math/Math.h:74:[[nodiscard]] constexpr u32 fade(u32 rgba, f32 t) {
+   105→/home/z/my-project/skyvault/engine/math/Math.h:85:    [[nodiscard]] static AABB fromCenterHalf(vec3 c, vec3 h) { return AABB{c - h, c + h}; }
+   106→/home/z/my-project/skyvault/engine/math/Math.h:86:    [[nodiscard]] static AABB fromMinMax(vec3 lo, vec3 hi) { return AABB{lo, hi}; }
+   107→/home/z/my-project/skyvault/engine/math/Math.h:89:    [[nodiscard]] vec3 center() const { return (bmin + bmax) * 0.5f; }
+   108→/home/z/my-project/skyvault/engine/math/Math.h:90:    [[nodiscard]] vec3 half() const { return (bmax - bmin) * 0.5f; }
+   109→/home/z/my-project/skyvault/engine/math/Math.h:91:    [[nodiscard]] vec3 size() const { return bmax - bmin; }
+   110→/home/z/my-project/skyvault/engine/math/Math.h:92:    [[nodiscard]] bool valid() const { return bmin.x <= bmax.x && bmin.y <= bmax.y && bmin.z <= bmax.z; }
+   111→/home/z/my-project/skyvault/engine/math/Math.h:93:    [[nodiscard]] bool contains(vec3 p) const { return p.x >= bmin.x && p.x <= bmax.x && p.y >= bmin.y && p.y <= bmax.y && p.z >= bmin.z && p.z <= bmax.z; }
+   112→/home/z/my-project/skyvault/engine/math/Math.h:94:    [[nodiscard]] bool contains2D(vec2 p) const { return p.x >= bmin.x && p.x <= bmax.x && p.y >= bmin.z && p.y <= bmax.z; }
+   113→/home/z/my-project/skyvault/engine/math/Math.h:95:    [[nodiscard]] bool intersects(const AABB& o) const {
+   114→/home/z/my-project/skyvault/engine/math/Math.h:100:    [[nodiscard]] bool intersectsSphere(vec3 c, f32 r) const {
+   115→/home/z/my-project/skyvault/engine/math/Math.h:104:    [[nodiscard]] AABB expanded(f32 e) const { return AABB{bmin - vec3(e), bmax + vec3(e)}; }
+   116→/home/z/my-project/skyvault/engine/math/Math.h:105:    [[nodiscard]] AABB transformed(const mat4& m) const; // esquinas transformadas (AABB envolvente)
+   117→/home/z/my-project/skyvault/engine/math/Math.h:106:    [[nodiscard]] f32 diagonal() const { return glm::length(size()); }
+   118→/home/z/my-project/skyvault/engine/math/Math.h:114:    [[nodiscard]] vec3 at(f32 t) const { return origin + dir * t; }
+   119→/home/z/my-project/skyvault/engine/math/Math.h:120:    [[nodiscard]] static Plane fromNormalPoint(vec3 n_, vec3 p) { Plane pl; pl.n = glm::normalize(n_); pl.d = -glm::dot(pl.n, p); return pl; }
+   120→/home/z/my-project/skyvault/engine/math/Math.h:121:    [[nodiscard]] f32 distance(vec3 p) const { return glm::dot(n, p) + d; }
+   121→/home/z/my-project/skyvault/engine/math/Math.h:132:    [[nodiscard]] bool containsPoint(vec3 pt) const;
+   122→/home/z/my-project/skyvault/engine/math/Math.h:133:    [[nodiscard]] bool intersectsAABB(const AABB& box) const; // test de vertice positivo
+   123→/home/z/my-project/skyvault/engine/math/Math.h:134:    [[nodiscard]] bool intersectsSphere(vec3 c, f32 r) const;
+   124→/home/z/my-project/skyvault/engine/math/Math.h:135:    [[nodiscard]] bool intersectsCircle2D(vec2 c, f32 r) const; // para tormenta/minimapa (ignora Y)
+   125→/home/z/my-project/skyvault/engine/math/Math.h:139:[[nodiscard]] bool  rayAABB(const Ray& r, const AABB& box, f32& tOut, vec3* normalOut = nullptr);
+   126→/home/z/my-project/skyvault/engine/math/Math.h:140:[[nodiscard]] bool  raySphere(const Ray& r, vec3 center, f32 radius, f32& tOut);
+   127→/home/z/my-project/skyvault/engine/math/Math.h:141:[[nodiscard]] bool  rayPlane(const Ray& r, const Plane& pl, f32& tOut);
+   128→/home/z/my-project/skyvault/engine/math/Math.h:142:[[nodiscard]] bool  segmentAABB(vec3 a, vec3 b, const AABB& box, f32& tOut);
+   129→/home/z/my-project/skyvault/engine/math/Math.h:143:[[nodiscard]] bool  segmentSphere(vec3 a, vec3 b, vec3 center, f32 radius, f32& tOut);
+   130→/home/z/my-project/skyvault/engine/math/Math.h:144:[[nodiscard]] vec3  closestPointOnSegment(vec3 p, vec3 a, vec3 b);
+   131→/home/z/my-project/skyvault/engine/math/Math.h:145:[[nodiscard]] vec3  closestPointOnAABB(vec3 p, const AABB& box);
+   132→/home/z/my-project/skyvault/engine/math/Math.h:146:[[nodiscard]] f32  segmentPointDist2(vec3 a, vec3 b, vec3 p);
+   133→/home/z/my-project/skyvault/engine/math/Math.h:147:[[nodiscard]] bool pointInTriangle2D(vec2 p, vec2 a, vec2 b, vec2 c);
+   134→/home/z/my-project/skyvault/engine/math/Math.h:156:    [[nodiscard]] vec3 evaluate(vec3 n) const; // n normalizado
+   135→/home/z/my-project/skyvault/engine/math/Math.h:158:    [[nodiscard]] bool isBlack() const;
+   136→/home/z/my-project/skyvault/engine/threading/JobSystem.h:31:    [[nodiscard]] bool isRunning() const { return running.load(); }
+   137→/home/z/my-project/skyvault/engine/threading/JobSystem.h:32:    [[nodiscard]] i32 workerCount() const { return static_cast<i32>(workers.size()); }
+   138→/home/z/my-project/skyvault/engine/threading/JobSystem.h:33:    [[nodiscard]] u32 threadIndex(); // 0 = hilo principal, 1..N = workers
+   139→/home/z/my-project/skyvault/engine/threading/JobSystem.h:52:    [[nodiscard]] Group* acquireGroup();
+   140→/home/z/my-project/skyvault/engine/threading/JobSystem.h:74:    [[nodiscard]] bool isRunning() const { return true; }
+   141→/home/z/my-project/skyvault/engine/threading/JobSystem.h:75:    [[nodiscard]] i32 workerCount() const { return 1; }
+   142→/home/z/my-project/skyvault/engine/threading/JobSystem.h:76:    [[nodiscard]] u32 threadIndex() const { return 0; }
+   143→/home/z/my-project/skyvault/engine/core/Json.h:26:    [[nodiscard]] static Json makeNull()   { return Json{}; }
+   144→/home/z/my-project/skyvault/engine/core/Json.h:27:    [[nodiscard]] static Json makeBool(bool b) { Json j; j.type = Type::Bool; j.boolean = b; return j; }
+   145→/home/z/my-project/skyvault/engine/core/Json.h:28:    [[nodiscard]] static Json makeNumber(f64 n) { Json j; j.type = Type::Number; j.number = n; return j; }
+   146→/home/z/my-project/skyvault/engine/core/Json.h:29:    [[nodiscard]] static Json makeString(std::string_view s) { Json j; j.type = Type::String; j.str = std::string(s); return j; }
+   147→/home/z/my-project/skyvault/engine/core/Json.h:30:    [[nodiscard]] static Json makeArray()  { Json j; j.type = Type::Array; return j; }
+   148→/home/z/my-project/skyvault/engine/core/Json.h:31:    [[nodiscard]] static Json makeObject() { Json j; j.type = Type::Object; return j; }
+   149→/home/z/my-project/skyvault/engine/core/Json.h:35:    [[nodiscard]] const Json* get(const char* key) const;   // nullptr si no existe
+   150→/home/z/my-project/skyvault/engine/core/Json.h:37:    [[nodiscard]] bool has(const char* key) const { return get(key) != nullptr; }
+   151→/home/z/my-project/skyvault/engine/core/Json.h:41:    [[nodiscard]] usize size() const { return type == Type::Array ? arr.size() : (type == Type::Object ? obj.size() : 0); }
+   152→/home/z/my-project/skyvault/engine/core/Json.h:42:    [[nodiscard]] const Json* at(usize i) const { return (type == Type::Array && i < arr.size()) ? &arr[i] : nullptr; }
+   153→/home/z/my-project/skyvault/engine/core/Json.h:45:    [[nodiscard]] f64   getNum(const char* key, f64 def) const;
+   154→/home/z/my-project/skyvault/engine/core/Json.h:46:    [[nodiscard]] i64   getInt(const char* key, i64 def) const;
+   155→/home/z/my-project/skyvault/engine/core/Json.h:47:    [[nodiscard]] bool  getBool(const char* key, bool def) const;
+   156→/home/z/my-project/skyvault/engine/core/Json.h:48:    [[nodiscard]] std::string getStr(const char* key, std::string_view def) const;
+   157→/home/z/my-project/skyvault/engine/core/Json.h:51:    [[nodiscard]] bool parse(std::string_view text, std::string* error = nullptr);
+   158→/home/z/my-project/skyvault/engine/core/Json.h:53:    [[nodiscard]] std::string dumpStr(bool pretty = false) const { std::string s; dump(s, pretty); return s; }
+   159→/home/z/my-project/skyvault/engine/core/Core.h:34:[[nodiscard]] constexpr f32 degToRad(f32 d) { return d * (PI_F / 180.0f); }
+   160→/home/z/my-project/skyvault/engine/core/Core.h:35:[[nodiscard]] constexpr f32 radToDeg(f32 r) { return r * (180.0f / PI_F); }
+   161→/home/z/my-project/skyvault/engine/core/Core.h:42:[[nodiscard]] constexpr u32 fnv1a32(const char* s, usize n) {
+   162→/home/z/my-project/skyvault/engine/core/Core.h:47:[[nodiscard]] constexpr StringId sid(std::string_view s) { return fnv1a32(s.data(), s.size()); }
+   163→/home/z/my-project/skyvault/engine/core/Core.h:48:[[nodiscard]] inline StringId sidRuntime(std::string_view s) { return fnv1a32(s.data(), s.size()); }
+   164→/home/z/my-project/skyvault/engine/core/Core.h:50:[[nodiscard]] constexpr u32 hashCombine(u32 a, u32 b) {
+   165→/home/z/my-project/skyvault/engine/core/Core.h:75:[[nodiscard]] f64 nowSeconds(); // reloj monotono
+   166→/home/z/my-project/skyvault/engine/core/Core.h:80:    [[nodiscard]] f64 elapsed() const { return nowSeconds() - start; }
+   167→/home/z/my-project/skyvault/engine/core/Core.h:89:    [[nodiscard]] f32 fps() const { return fpsSmooth; }
+   168→/home/z/my-project/skyvault/engine/core/Core.h:103:    [[nodiscard]] u32 nextU32();
+   169→/home/z/my-project/skyvault/engine/core/Core.h:104:    [[nodiscard]] u32 rangeU32(u32 hiExclusive);      // [0, hi)
+   170→/home/z/my-project/skyvault/engine/core/Core.h:105:    [[nodiscard]] i32 rangeI32(i32 loInclusive, i32 hiExclusive);
+   171→/home/z/my-project/skyvault/engine/core/Core.h:106:    [[nodiscard]] f32 nextF32();                      // [0, 1)
+   172→/home/z/my-project/skyvault/engine/core/Core.h:107:    [[nodiscard]] f32 rangeF32(f32 lo, f32 hi);
+   173→/home/z/my-project/skyvault/engine/core/Core.h:108:    [[nodiscard]] f32 symmetric();                    // [-1, 1)
+   174→/home/z/my-project/skyvault/engine/core/Core.h:109:    [[nodiscard]] f32 normal();                       // N(0,1) Box-Muller
+   175→/home/z/my-project/skyvault/engine/core/Core.h:110:    [[nodiscard]] bool chance(f32 probability);
+   176→/home/z/my-project/skyvault/engine/core/Core.h:111:    [[nodiscard]] u32 pick(u32 n) { return rangeU32(n); }
+   177→/home/z/my-project/skyvault/engine/core/Core.h:118:    [[nodiscard]] bool readFile(const char* path, std::vector<u8>& out);
+   178→/home/z/my-project/skyvault/engine/core/Core.h:119:    [[nodiscard]] bool writeFile(const char* path, const void* data, usize size);
+   179→/home/z/my-project/skyvault/engine/core/Core.h:120:    [[nodiscard]] bool fileExists(const char* path);
+   180→/home/z/my-project/skyvault/engine/core/Core.h:121:    [[nodiscard]] std::string exeDir();                 // directorio del ejecutable
+   181→/home/z/my-project/skyvault/engine/core/Core.h:122:    [[nodiscard]] std::string userDir(const char* app); // ~/.app (o exeDir de respaldo)
+   182→/home/z/my-project/skyvault/engine/core/Core.h:123:    [[nodiscard]] std::string join(const std::string& a, const std::string& b);
+   183→/home/z/my-project/skyvault/engine/core/Core.h:125:    [[nodiscard]] std::string findResource(const char* rel);
+   184→/home/z/my-project/skyvault/engine/core/Core.h:134:    [[nodiscard]] bool load(const char* path);
+   185→/home/z/my-project/skyvault/engine/core/Core.h:135:    [[nodiscard]] bool save(const char* path) const;
+   186→/home/z/my-project/skyvault/engine/core/Core.h:137:    [[nodiscard]] std::string getStr(std::string_view key, std::string_view def = "") const;
+   187→/home/z/my-project/skyvault/engine/core/Core.h:138:    [[nodiscard]] i32 getInt(std::string_view key, i32 def = 0) const;
+   188→/home/z/my-project/skyvault/engine/core/Core.h:139:    [[nodiscard]] f32 getFloat(std::string_view key, f32 def = 0.0f) const;
+   189→/home/z/my-project/skyvault/engine/core/Core.h:140:    [[nodiscard]] bool getBool(std::string_view key, bool def = false) const;
+   190→/home/z/my-project/skyvault/engine/core/Core.h:153:    [[nodiscard]] const std::string* find(std::string_view key) const;
+   191→/home/z/my-project/skyvault/engine/core/Core.h:157:[[nodiscard]] std::string format(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+   192→/home/z/my-project/skyvault/engine/render/Shaders.h:536:    if (d > 1.0) discard;
+   193→/home/z/my-project/skyvault/engine/render/Shaders.h:572:    if (c.a < 0.004) discard;
+   194→/home/z/my-project/skyvault/engine/render/GLLoader.h:138:  [[nodiscard]] bool loadAll();   // llama despues de crear el contexto
+   195→/home/z/my-project/skyvault/engine/render/RenderTypes.h:22:    [[nodiscard]] bool load(const char* vertSrc, const char* fragSrc,
+   196→/home/z/my-project/skyvault/engine/render/RenderTypes.h:26:    [[nodiscard]] bool valid() const { return m_prog != 0; }
+   197→/home/z/my-project/skyvault/engine/render/RenderTypes.h:38:    [[nodiscard]] i32 location(const char* n) const { return gl::glGetUniformLocation(m_prog, n); }
+   198→/home/z/my-project/skyvault/engine/render/RenderTypes.h:72:    [[nodiscard]] bool valid() const { return vao != 0; }
+   199→/home/z/my-project/skyvault/engine/render/RenderTypes.h:95:[[nodiscard]] i32 gpuMaxTextureSize();
+   200→/home/z/my-project/skyvault/engine/render/Renderer.h:32:    [[nodiscard]] vec3 forward() const;
+   201→/home/z/my-project/skyvault/engine/render/Renderer.h:33:    [[nodiscard]] vec3 right()   const;
+   202→/home/z/my-project/skyvault/engine/render/Renderer.h:34:    [[nodiscard]] static Camera mirrored(const Camera& c, f32 planeY);
+   203→/home/z/my-project/skyvault/engine/render/Renderer.h:126:    [[nodiscard]] bool init(i32 viewportW, i32 viewportH);
+   204→/home/z/my-project/skyvault/engine/render/Renderer.h:153:    [[nodiscard]] Mesh createMesh(const Vertex* verts, u32 vertCount,
+   205→/home/z/my-project/skyvault/engine/render/Renderer.h:157:    [[nodiscard]] bool initFont();
+   206→/home/z/my-project/skyvault/engine/render/Renderer.h:158:    [[nodiscard]] static Renderer& get();
+   207→/home/z/my-project/skyvault/engine/render/Renderer.h:160:    [[nodiscard]] const GraphicsSettings& gfx() const { return m_gfx; }
+   208→/home/z/my-project/skyvault/engine/render/Renderer.h:161:    [[nodiscard]] i32 viewW() const { return m_viewW; }
+   209→/home/z/my-project/skyvault/engine/render/Renderer.h:162:    [[nodiscard]] i32 viewH() const { return m_viewH; }
+   210→/home/z/my-project/skyvault/engine/render/Renderer.h:163:    [[nodiscard]] bool hdrActive() const { return m_hdr; }
+   211→/home/z/my-project/skyvault/engine/render/Renderer.h:195:    [[nodiscard]] mat4 cascadeMatrix(u32 cascade, const Camera& cam, vec3& outCenter,
+   212→/home/z/my-project/skyvault/engine/render/GLTF.h:26:    [[nodiscard]] bool load(const char* glbPath, bool useNodeTransforms = true,
+   213→/home/z/my-project/skyvault/engine/render/GLTF.h:29:    [[nodiscard]] bool valid() const { return !prims.empty(); }
+   214→/home/z/my-project/skyvault/engine/memory/Memory.h:36:    [[nodiscard]] usize used() const { return offset; }
+   215→/home/z/my-project/skyvault/engine/memory/Memory.h:37:    [[nodiscard]] usize total() const { return capacity; }
+   216→/home/z/my-project/skyvault/engine/memory/Memory.h:39:    [[nodiscard]] void* alloc(usize size, usize align = 16) {
+   217→/home/z/my-project/skyvault/engine/memory/Memory.h:47:    [[nodiscard]] T* allocArray(usize count) {
+   218→/home/z/my-project/skyvault/engine/memory/Memory.h:84:    [[nodiscard]] void* obtain() {
+   219→/home/z/my-project/skyvault/engine/memory/Memory.h:98:    [[nodiscard]] usize live() const { return liveBlocks; }
+   220→/home/z/my-project/skyvault/engine/memory/Memory.h:100:    [[nodiscard]] T* create() {
+   221→/home/z/my-project/skyvault/engine/memory/Memory.h:133:    [[nodiscard]] void* alloc(usize size, usize align = 16) { return arenas[current].alloc(size, align); }
+   222→/home/z/my-project/skyvault/engine/memory/Memory.h:135:    [[nodiscard]] T* allocArray(usize count) { return arenas[current].allocArray<T>(count); }
+   223→/home/z/my-project/skyvault/engine/memory/Memory.h:136:    [[nodiscard]] LinearArena& front() { return arenas[current]; }        // buffer de escritura
+   224→/home/z/my-project/skyvault/engine/memory/Memory.h:137:    [[nodiscard]] LinearArena& back() const { return const_cast<FrameArena*>(this)->arenas[current ^ 1]; }
+   225→/home/z/my-project/skyvault/engine/memory/Memory.h:138:    [[nodiscard]] usize used() const { return arenas[current].used(); }
+   226→/home/z/my-project/skyvault/engine/physics/Physics.h:52:    [[nodiscard]] f32 groundHeight(f32 x, f32 z, f32 feetY) const;
+   227→/home/z/my-project/skyvault/engine/physics/Physics.h:56:    [[nodiscard]] bool raycast(const vec3& origin, const vec3& dir, f32 maxDist,
+   228→/home/z/my-project/skyvault/engine/physics/Physics.h:58:    [[nodiscard]] usize boxCount() const { return m_boxes.size(); }
+   229→/home/z/my-project/skyvault/engine/physics/Physics.h:59:    [[nodiscard]] const ColliderBox& box(usize i) const { return m_boxes[i]; }
+   230→/home/z/my-project/skyvault/engine/physics/Physics.h:62:    [[nodiscard]] bool raycastTerrain(const vec3& o, const vec3& d, f32 maxDist,
+   231→/home/z/my-project/skyvault/engine/physics/Physics.h:64:    [[nodiscard]] bool raycastBoxes(const vec3& o, const vec3& d, f32 maxDist,
+   232→/home/z/my-project/skyvault/engine/physics/Physics.h:66:    [[nodiscard]] bool raycastTrees(const vec3& o, const vec3& d, f32 maxDist,
+   233→/home/z/my-project/skyvault/engine/world/Terrain.h:31:    [[nodiscard]] bool init(u32 seed);
+   234→/home/z/my-project/skyvault/engine/world/Terrain.h:35:    [[nodiscard]] f32 height(f32 x, f32 z) const;
+   235→/home/z/my-project/skyvault/engine/world/Terrain.h:36:    [[nodiscard]] vec3 normal(f32 x, f32 z) const;
+   236→/home/z/my-project/skyvault/engine/world/Terrain.h:37:    [[nodiscard]] vec3 biomeColor(f32 x, f32 z, f32 h, f32 slope, f32 moisture) const;
+   237→/home/z/my-project/skyvault/engine/world/Terrain.h:38:    [[nodiscard]] f32 moistureAt(f32 x, f32 z) const { return m_moist.perlin2(x * 0.0008f, z * 0.0008f) * 0.5f + 0.5f; }
+   238→/home/z/my-project/skyvault/engine/world/Terrain.h:43:    [[nodiscard]] const std::vector<PoiDef>& pois() const { return m_pois; }
+   239→/home/z/my-project/skyvault/engine/world/Terrain.h:44:    [[nodiscard]] static const std::vector<PoiDef>& poiTable();  // definiciones estaticas
+   240→/home/z/my-project/skyvault/engine/world/Terrain.h:46:    [[nodiscard]] bool isLand(vec2 p) const { return height(p.x, p.y) > 2.0f; }
+   241→/home/z/my-project/skyvault/engine/world/Noise.h:15:    [[nodiscard]] f32 perlin2(f32 x, f32 y) const;              // ~[-1, 1]
+   242→/home/z/my-project/skyvault/engine/world/Noise.h:16:    [[nodiscard]] f32 perlin3(f32 x, f32 y, f32 z) const;       // ~[-1, 1]
+   243→/home/z/my-project/skyvault/engine/world/Noise.h:17:    [[nodiscard]] f32 fbm2(f32 x, f32 y, i32 octaves, f32 lacunarity = 2.0f, f32 gain = 0.5f) const;
+   244→/home/z/my-project/skyvault/engine/world/Noise.h:18:    [[nodiscard]] f32 fbm3(f32 x, f32 y, f32 z, i32 octaves, f32 lacunarity = 2.0f, f32 gain = 0.5f) const;
+   245→/home/z/my-project/skyvault/engine/world/Noise.h:19:    [[nodiscard]] f32 ridged2(f32 x, f32 y, i32 octaves) const; // [0, 1]
+   246→/home/z/my-project/skyvault/engine/world/Noise.h:20:    [[nodiscard]] f32 warpedFbm2(f32 x, f32 y, f32 strength, i32 octaves) const;
+   247→/home/z/my-project/skyvault/engine/world/Noise.h:23:    [[nodiscard]] static u32 hashU32(u32 x);
+   248→/home/z/my-project/skyvault/engine/world/Noise.h:24:    [[nodiscard]] static f32 hashF32(i32 x, i32 y, u32 seed);
+   249→/home/z/my-project/skyvault/engine/world/Noise.h:25:    [[nodiscard]] static f32 hashF32_3(i32 x, i32 y, i32 z, u32 seed);
+   250→/home/z/my-project/skyvault/engine/world/Noise.h:29:    [[nodiscard]] u32 p(u32 i) const { return perm[i & 511u]; }
+   251→
+   252→[Showing results with pagination = limit: 250]

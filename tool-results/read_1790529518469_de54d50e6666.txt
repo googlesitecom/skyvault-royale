@@ -1,0 +1,702 @@
+     1→// ============================================================================
+     2→//  SKYVAULT Royale - game/Game.cpp  (logica de partida)
+     3→// ============================================================================
+     4→#include "game/Game.h"
+     5→#include <algorithm>
+     6→#include <cmath>
+     7→
+     8→namespace game {
+     9→
+    10→Game& gameInstance() { static Game g; return g; }
+    11→
+    12→// ---------------------------------------------------------------------------
+    13→// Definiciones de armas
+    14→// ---------------------------------------------------------------------------
+    15→WeaponDef Game::weaponDef(WeaponKind k) const {
+    16→    WeaponDef d;
+    17→    d.kind = k;
+    18→    switch (k) {
+    19→        case WeaponKind::Pickaxe:
+    20→            d.name = "Pico"; d.damage = 20; d.fireInterval = 0.5f; d.range = 3.2f;
+    21→            d.modelScale = 1.0f; d.modelOffset = vec3(0.32f, 1.25f, 0.25f); d.modelYaw = 0.6f;
+    22→            break;
+    23→        case WeaponKind::Shotgun:
+    24→            d.name = "Escopeta Pistón"; d.damage = 9; d.pellets = 7; d.headMult = 1.6f;
+    25→            d.fireInterval = 0.95f; d.spread = 0.045f; d.magSize = 5; d.range = 60;
+    26→            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.2f, 0.4f); d.modelYaw = 0.9f;
+    27→            break;
+    28→        case WeaponKind::SMG:
+    29→            d.name = "SMG Doble Cargador"; d.damage = 16; d.headMult = 1.5f;
+    30→            d.fireInterval = 0.085f; d.spread = 0.022f; d.magSize = 30; d.range = 120;
+    31→            d.automatic = true;
+    32→            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.22f, 0.4f); d.modelYaw = 0.9f;
+    33→            break;
+    34→        case WeaponKind::Rifle:
+    35→            d.name = "Fusil Escarabajo"; d.damage = 31; d.headMult = 1.7f;
+    36→            d.fireInterval = 0.165f; d.spread = 0.011f; d.magSize = 30; d.range = 200;
+    37→            d.automatic = true;
+    38→            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.25f, 0.45f); d.modelYaw = 0.9f;
+    39→            break;
+    40→        case WeaponKind::Sniper:
+    41→            d.name = "Francotirador Bisonte"; d.damage = 108; d.headMult = 2.0f;
+    42→            d.fireInterval = 1.6f; d.spread = 0.002f; d.magSize = 1; d.range = 400;
+    43→            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.28f, 0.5f); d.modelYaw = 0.9f;
+    44→            break;
+    45→        default: break;
+    46→    }
+    47→    return d;
+    48→}
+    49→
+    50→vec4 Game::rarityColor(u8 r) {
+    51→    switch (r) {
+    52→        case 0: return vec4(0.75f, 0.75f, 0.75f, 1);
+    53→        case 1: return vec4(0.20f, 0.85f, 0.30f, 1);
+    54→        case 2: return vec4(0.25f, 0.50f, 0.98f, 1);
+    55→        case 3: return vec4(0.72f, 0.30f, 0.95f, 1);
+    56→        default: return vec4(1.0f, 0.78f, 0.15f, 1);
+    57→    }
+    58→}
+    59→
+    60→// ---------------------------------------------------------------------------
+    61→// Init
+    62→// ---------------------------------------------------------------------------
+    63→bool Game::init(Renderer* renderer) {
+    64→    m_r = renderer;
+    65→    if (!m_terrain.init(m_seed)) return false;
+    66→    m_collision.setTerrain(&m_terrain);
+    67→
+    68→    // personajes y armas 100% procedurales: ningun asset de terceros
+    69→    // (requisito legal del proyecto: arte y nombres originales)
+    70→    m_charMesh    = makeCharacterMesh();
+    71→    m_pickaxeMesh = makeWeaponMesh(WeaponKind::Pickaxe);
+    72→    m_shotgunMesh = makeWeaponMesh(WeaponKind::Shotgun);
+    73→    m_smgMesh     = makeWeaponMesh(WeaponKind::SMG);
+    74→    m_rifleMesh   = makeWeaponMesh(WeaponKind::Rifle);
+    75→    m_sniperMesh  = makeWeaponMesh(WeaponKind::Sniper);
+    76→
+    77→    // geometria procedural: arbol, roca, cofre, caja
+    78→    m_treeMesh = makeTreeMesh();
+    79→    m_rockMesh = makeRockMesh();
+    80→    m_chestMesh = makeChestMesh();
+    81→    m_boxMesh = makeUnitCube();
+    82→
+    83→    generateWorldContent();
+    84→    bakeMinimap();
+    85→
+    86→    // bots
+    87→    m_bots.resize(MaxBots);
+    88→    respawn();          // coloca al jugador + prepara la partida (menu)
+    89→
+    90→    m_particles.resize(512);
+    91→    m_state = State::Menu;
+    92→    SV_LOG_INFO("game", "Partida lista: %d bots, %zu cofres, %zu arboles",
+    93→                (i32)m_bots.size(), m_chests.size(), m_treeData.size());
+    94→    return true;
+    95→}
+    96→
+    97→void Game::shutdown() {
+    98→    m_terrain.destroy();
+    99→    m_treeMesh.destroy(); m_rockMesh.destroy(); m_chestMesh.destroy(); m_boxMesh.destroy();
+   100→    m_charMesh.destroy(); m_pickaxeMesh.destroy(); m_shotgunMesh.destroy();
+   101→    m_smgMesh.destroy(); m_rifleMesh.destroy(); m_sniperMesh.destroy();
+   102→    m_minimapTex.destroy();
+   103→}
+   104→
+   105→// ---------------------------------------------------------------------------
+   106→// Generacion de contenido: arboles, rocas, POIs, cofres, loot
+   107→// ---------------------------------------------------------------------------
+   108→Mesh Game::makeTreeMesh() {
+   109→    // pino bajo: tronco + 2 conos
+   110→    std::vector<Vertex> v;
+   111→    std::vector<u32> idx;
+   112→    const vec3 trunk(0.36f, 0.22f, 0.14f), leaf1(0.13f, 0.42f, 0.16f), leaf2(0.16f, 0.50f, 0.20f);
+   113→    // tronco (cilindro de 6 lados, radio 0.25, altura 3.2)
+   114→    for (u32 i = 0; i <= 6; ++i) {
+   115→        const f32 a = (f32)i / 6.0f * TAU_F;
+   116→        const vec3 n(std::cos(a), 0, std::sin(a));
+   117→        v.push_back({{n.x * 0.25f, 0, n.z * 0.25f}, n, {0, 0}, {1,0,0,1},{},{}, vec4(trunk, 1)});
+   118→        v.push_back({{n.x * 0.25f, 3.2f, n.z * 0.25f}, n, {1, 0}, {1,0,0,1},{},{}, vec4(trunk, 1)});
+   119→    }
+   120→    for (u32 i = 0; i < 6; ++i) {
+   121→        const u32 b = i * 2;
+   122→        idx.insert(idx.end(), {b, b + 1, b + 2, b + 2, b + 1, b + 3});   // CCW fuera
+   123→    }
+   124→    auto cone = [&](f32 y0, f32 y1, f32 r, vec3 col) {
+   125→        const u32 base = (u32)v.size();
+   126→        for (u32 i = 0; i <= 7; ++i) {
+   127→            const f32 a = (f32)i / 7.0f * TAU_F;
+   128→            const vec3 n(std::cos(a), 0.35f, std::sin(a));
+   129→            v.push_back({{std::cos(a) * r, y0, std::sin(a) * r}, n, {0, 0}, {1,0,0,1},{},{}, vec4(col, 1)});
+   130→        }
+   131→        const u32 tip = (u32)v.size();
+   132→        v.push_back({{0, y1, 0}, vec3(0, 1, 0), {0.5f, 0.5f}, {1,0,0,1},{},{}, vec4(col, 1)});
+   133→        for (u32 i = 0; i < 7; ++i) {
+   134→            const u32 b = base + i;
+   135→            idx.insert(idx.end(), {b, tip, b + 1});   // CCW fuera
+   136→        }
+   137→    };
+   138→    cone(1.6f, 4.6f, 2.3f, leaf1);
+   139→    cone(3.4f, 6.4f, 1.5f, leaf2);
+   140→    return m_r->createMesh(v.data(), (u32)v.size(), idx.data(), (u32)idx.size());
+   141→}
+   142→
+   143→Mesh Game::makeRockMesh() {
+   144→    std::vector<Vertex> v;
+   145→    std::vector<u32> idx;
+   146→    // icosaedro deformado simple: 2 anillos + polos
+   147→    const vec3 rock(0.52f, 0.50f, 0.48f);
+   148→    const f32 R = 1.0f;
+   149→    auto ring = [&](f32 y, f32 r, u32 n, f32 twist) {
+   150→        const u32 base = (u32)v.size();
+   151→        for (u32 i = 0; i < n; ++i) {
+   152→            const f32 a = (f32)i / n * TAU_F + twist;
+   153→            const vec3 p(std::cos(a) * r, y, std::sin(a) * r);
+   154→            v.push_back({p * 1.1f, normalize(p), {0, 0}, {1,0,0,1},{},{}, vec4(rock * (0.9f + 0.2f * (f32)(i % 2)), 1)});
+   155→        }
+   156→        return base;
+   157→    };
+   158→    const u32 top = (u32)v.size();
+   159→    v.push_back({{0, R * 0.9f, 0}, vec3(0, 1, 0), {0, 0}, {1,0,0,1},{},{}, vec4(rock, 1)});
+   160→    const u32 r1 = ring(R * 0.35f, R * 0.85f, 7, 0.2f);
+   161→    const u32 r2 = ring(-R * 0.25f, R * 0.7f, 7, 0.5f);
+   162→    const u32 bot = (u32)v.size();
+   163→    v.push_back({{0, -R * 0.55f, 0}, vec3(0, -1, 0), {0, 0}, {1,0,0,1},{},{}, vec4(rock * 0.8f, 1)});
+   164→    for (u32 i = 0; i < 7; ++i) {
+   165→        const u32 a = r1 + i, b = r1 + (i + 1) % 7;
+   166→        const u32 c = r2 + i, d = r2 + (i + 1) % 7;
+   167→        idx.insert(idx.end(), {top, a, b});
+   168→        idx.insert(idx.end(), {a, d, b, a, c, d});
+   169→        idx.insert(idx.end(), {c, bot, d});
+   170→    }
+   171→    return m_r->createMesh(v.data(), (u32)v.size(), idx.data(), (u32)idx.size());
+   172→}
+   173→
+   174→Mesh Game::makeChestMesh() {
+   175→    // cofre: caja dorada 1.0 x 0.7 x 0.7
+   176→    std::vector<Vertex> v;
+   177→    std::vector<u32> idx;
+   178→    const vec3 gold(0.85f, 0.62f, 0.16f), dark(0.45f, 0.30f, 0.10f);
+   179→    auto box = [&](vec3 mn, vec3 mx, vec3 col) {
+   180→        const u32 base = (u32)v.size();
+   181→        const vec3 c((mn + mx) * 0.5f), s((mx - mn) * 0.5f);
+   182→        const vec3 cols[6] = {col * 0.8f, col, col * 0.9f, col * 0.9f, col * 1.1f, col * 0.7f};
+   183→        static const vec3 normals[6] = {{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+   184→        for (u32 f = 0; f < 6; ++f) {
+   185→            const u32 b = (u32)v.size();
+   186→            for (u32 k = 0; k < 4; ++k) {
+   187→                vec3 p = c;
+   188→                const vec3& n = normals[f];
+   189→                vec3 t = std::fabs(n.x) > 0.5f ? vec3(0, 1, 0) : (std::fabs(n.y) > 0.5f ? vec3(1, 0, 0) : vec3(1, 0, 0));
+   190→                vec3 bt = cross(n, t);
+   191→                const f32 su = (k == 0 || k == 3) ? -1 : 1;
+   192→                const f32 sv = (k < 2) ? -1 : 1;
+   193→                p += n * dot(s, n) + t * su * dot(s, t) + bt * sv * dot(s, bt);
+   194→                v.push_back({p, n, {(f32)(k % 2), (f32)(k / 2)}, {1,0,0,1},{},{}, vec4(cols[f], 1)});
+   195→            }
+   196→            idx.insert(idx.end(), {b, b + 2, b + 1, b, b + 3, b + 2});
+   197→        }
+   198→        (void)base;
+   199→    };
+   200→    box(vec3(-0.5f, 0, -0.35f), vec3(0.5f, 0.28f, 0.35f), dark);       // base
+   201→    box(vec3(-0.5f, 0.28f, -0.35f), vec3(0.5f, 0.62f, 0.35f), gold);   // tapa
+   202→    return m_r->createMesh(v.data(), (u32)v.size(), idx.data(), (u32)idx.size());
+   203→}
+   204→
+   205→Mesh Game::makeUnitCube() {
+   206→    std::vector<Vertex> v;
+   207→    std::vector<u32> idx;
+   208→    const vec3 wood(0.62f, 0.44f, 0.24f);
+   209→    const vec3 nrm[6] = {{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};
+   210→    for (u32 f = 0; f < 6; ++f) {
+   211→        const u32 b = (u32)v.size();
+   212→        const vec3& n = nrm[f];
+   213→        const vec3 t = std::fabs(n.y) > 0.5f ? vec3(1, 0, 0) : vec3(0, 1, 0);
+   214→        const vec3 bt = cross(n, t);
+   215→        const f32 tu = std::fabs(n.y) > 0.5f ? 0.5f : 0.5f;
+   216→        const vec3 half(0.5f);
+   217→        const f32 hu = dot(half, t) * 2, hv = dot(half, bt) * 2;
+   218→        for (u32 k = 0; k < 4; ++k) {
+   219→            const f32 su = (k == 0 || k == 3) ? -1 : 1;
+   220→            const f32 sv = (k < 2) ? -1 : 1;
+   221→            vec3 p = n * 0.5f + t * su * 0.5f + bt * sv * 0.5f;
+   222→            v.push_back({p, n, {(k % 2) * tu, (k / 2) * tu}, {1,0,0,1},{},{},
+   223→                         vec4(wood * (0.85f + 0.15f * (f32)(f % 3)), 1)});
+   224→        }
+   225→        idx.insert(idx.end(), {b, b + 2, b + 1, b, b + 3, b + 2});
+   226→        (void)hu; (void)hv;
+   227→    }
+   228→    return m_r->createMesh(v.data(), (u32)v.size(), idx.data(), (u32)idx.size());
+   229→}
+   230→
+   231→void Game::generateWorldContent() {
+   232→    Random rng(m_seed * 7 + 3);
+   233→    const auto& pois = m_terrain.pois();
+   234→
+   235→    // arboles y rocas: distribucion por ruido, evitando POIs y agua
+   236→    m_treeData.clear();
+   237→    m_rockData.clear();
+   238→    for (i32 i = 0; i < 9000 && m_treeData.size() < 3200; ++i) {
+   239→        const f32 x = rng.symmetric() * Terrain::Half * 0.95f;
+   240→        const f32 z = rng.symmetric() * Terrain::Half * 0.95f;
+   241→        const f32 h = m_terrain.height(x, z);
+   242→        if (h < 8.0f || h > 235.0f) continue;
+   243→        const vec3 n = m_terrain.normal(x, z);
+   244→        if (n.y < 0.82f) continue;                       // pendiente
+   245→        bool nearPoi = false;
+   246→        for (const auto& poi : pois)
+   247→            if (distance(vec2(x, z), poi.pos) < poi.radius * 0.8f) { nearPoi = true; break; }
+   248→        if (nearPoi) continue;
+   249→        const f32 dens = m_terrain.moistureAt(x, z);
+   250→        if (rng.nextF32() > dens * 1.5f) continue;
+   251→        m_treeData.push_back(vec4(x, h, z, 0.8f + rng.nextF32() * 0.7f));
+   252→    }
+   253→    m_treeAlive.assign(m_treeData.size(), true);
+   254→    m_treeHp.assign(m_treeData.size(), 100.0f);
+   255→    for (i32 i = 0; i < 1500 && m_rockData.size() < 700; ++i) {
+   256→        const f32 x = rng.symmetric() * Terrain::Half * 0.95f;
+   257→        const f32 z = rng.symmetric() * Terrain::Half * 0.95f;
+   258→        const f32 h = m_terrain.height(x, z);
+   259→        if (h < 3.0f || h > 330.0f) continue;
+   260→        m_rockData.push_back(vec3(x, h, z));
+   261→    }
+   262→
+   263→    // edificios de POI + cofres + loot
+   264→    m_staticBoxes.clear();
+   265→    m_chests.clear();
+   266→    m_loot.clear();
+   267→    m_collision.clearDynamic();
+   268→    for (const auto& poi : pois) {
+   269→        const f32 groundH = m_terrain.height(poi.pos.x, poi.pos.y);
+   270→        const bool flatish = true;
+   271→        for (i32 b = 0; b < poi.buildingCount; ++b) {
+   272→            const f32 ang = rng.nextF32() * TAU_F + (f32)b * 2.4f;
+   273→            const f32 rad = poi.radius * (0.25f + rng.nextF32() * 0.4f);
+   274→            const f32 bx = poi.pos.x + std::cos(ang) * rad;
+   275→            const f32 bz = poi.pos.y + std::sin(ang) * rad;
+   276→            const f32 bh = m_terrain.height(bx, bz);
+   277→            if (bh < 4.0f) continue;                     // en el agua, no
+   278→            const f32 w = 7.0f, d = 7.0f, hgt = 4.0f;
+   279→            const vec3 sz(w, hgt, d);
+   280→            // 4 paredes con hueco de puerta (cara -Z) + techo
+   281→            const vec3 mn(bx - sz.x * 0.5f, bh, bz - sz.z * 0.5f);
+   282→            const vec3 mx(bx + sz.x * 0.5f, bh + hgt, bz + sz.z * 0.5f);
+   283→            const f32 T = 0.35f;
+   284→            auto addWall = [&](vec3 a, vec3 b) {
+   285→                m_staticBoxes.push_back({AABB{a, b}, ColliderOwner::World, 0, false, 0});
+   286→            };
+   287→            addWall(vec3(mn.x, bh, mn.z), vec3(mx.x, bh + hgt, mn.z + T));                    // frente
+   288→            addWall(vec3(mn.x, bh, mx.z - T), vec3(mx.x, bh + hgt, mx.z));                    // atras
+   289→            addWall(vec3(mn.x, bh, mn.z + T), vec3(mn.x + T, bh + hgt, mx.z - T));            // izq
+   290→            addWall(vec3(mx.x - T, bh, mn.z + T), vec3(mx.x, bh + hgt, mx.z - T));            // der
+   291→            // puerta: hueco en la pared frontal -> dividir en 2 (simplemente dejamos
+   292→            // la pared frontal partida restando un segmento central)
+   293→            // (solucion: la pared frontal ya es solida; abrimos hueco quitando el
+   294→            //  tramo central con un segundo box "negativo" no es posible; en su
+   295→            //  lugar elevamos la pared frontal como medio-arco)
+   296→            m_staticBoxes.pop_back();
+   297→            addWall(vec3(mn.x, bh + 2.6f, mn.z), vec3(mx.x, bh + hgt, mn.z + T));             // dintel
+   298→            addWall(vec3(mn.x, bh, mn.z), vec3(mn.x + 1.6f, bh + 2.6f, mn.z + T));            // izquierda puerta
+   299→            addWall(vec3(mx.x - 1.6f, bh, mn.z), vec3(mx.x, bh + 2.6f, mn.z + T));            // derecha puerta
+   300→            addWall(vec3(mn.x, bh + hgt, mn.z), vec3(mx.x, bh + hgt + T, mx.z));              // techo
+   301→        }
+   302→        // cofres: 2-4 por POI
+   303→        const i32 chestCount = 2 + (i32)(rng.nextF32() * 3.0f);
+   304→        for (i32 c = 0; c < chestCount; ++c) {
+   305→            const f32 a = rng.nextF32() * TAU_F, r = rng.nextF32() * poi.radius * 0.7f;
+   306→            const f32 cx = poi.pos.x + std::cos(a) * r;
+   307→            const f32 cz = poi.pos.y + std::sin(a) * r;
+   308→            const f32 ch = m_terrain.height(cx, cz);
+   309→            if (ch > 3.0f) m_chests.push_back({vec3(cx, ch, cz), false});
+   310→        }
+   311→        // loot por el suelo
+   312→        const i32 lootCount = 2 + (i32)(rng.nextF32() * 3.0f);
+   313→        for (i32 l = 0; l < lootCount; ++l) {
+   314→            const f32 a = rng.nextF32() * TAU_F, r = rng.nextF32() * poi.radius;
+   315→            const f32 lx = poi.pos.x + std::cos(a) * r;
+   316→            const f32 lz = poi.pos.y + std::sin(a) * r;
+   317→            const f32 lh = m_terrain.height(lx, lz);
+   318→            if (lh < 3.0f) continue;
+   319→            FloorLoot fl;
+   320→            fl.pos = vec3(lx, lh + 0.3f, lz);
+   321→            fl.weapon.kind = (WeaponKind)(1 + rng.rangeU32(4));
+   322→            fl.weapon.rarity = (u8)rng.rangeU32(5);
+   323→            fl.weapon.ammo = 999;
+   324→            fl.taken = false;
+   325→            m_loot.push_back(fl);
+   326→        }
+   327→        (void)groundH; (void)flatish;
+   328→    }
+   329→
+   330→    // arboles al collider
+   331→    for (usize i = 0; i < m_treeData.size(); ++i)
+   332→        m_collision.addTree(vec2(m_treeData[i].x, m_treeData[i].z), 0.45f * m_treeData[i].w, 6.4f * m_treeData[i].w);
+   333→
+   334→    rebuildCollision();
+   335→}
+   336→
+   337→
+   338→void Game::rebuildCollision() {
+   339→    // reconstruye la lista dinamica: estaticos + construcciones del jugador
+   340→    m_collision.clearDynamic();
+   341→    for (const auto& b : m_staticBoxes) m_collision.addBox(b);
+   342→    for (usize i = 0; i < m_builds.size(); ++i) {
+   343→        const BuildPiece& p = m_builds[i];
+   344→        const auto [mn, mx] = buildAabb(p);
+   345→        if (p.kind == BuildKind::Ramp) {
+   346→            ColliderRamp r;
+   347→            r.box = AABB{mn, mx};
+   348→            r.dir = p.rot;
+   349→            m_collision.addRamp(r);
+   350→            // bloqueo lateral tenue: caja fina bajo la rampa no; caminable
+   351→        } else {
+   352→            m_collision.addBox({AABB{mn, mx}, ColliderOwner::Build, (u32)i, true, p.hp});
+   353→        }
+   354→    }
+   355→}
+   356→
+   357→std::pair<vec3, vec3> Game::buildAabb(const BuildPiece& p) const {
+   358→    // celda: floor = y del terreno al momento de construir; guardamos cell.y como altura base
+   359→    const f32 gx = (f32)p.cell.x * CellSize;
+   360→    const f32 gz = (f32)p.cell.z * CellSize;
+   361→    const f32 gy = (f32)p.cell.y;
+   362→    switch (p.kind) {
+   363→        case BuildKind::Wall: {
+   364→            // pared vertical en el borde de la celda segun rot (0:+X,1:+Z,2:-X,3:-Z)
+   365→            if (p.rot % 2 == 0) {
+   366→                const f32 x = gx + (p.rot == 0 ? CellSize : 0.0f);
+   367→                return {{x - 0.2f, gy, gz}, {x + 0.2f, gy + CellSize, gz + CellSize}};
+   368→            }
+   369→            const f32 z = gz + (p.rot == 1 ? CellSize : 0.0f);
+   370→            return {{gx, gy, z - 0.2f}, {gx + CellSize, gy + CellSize, z + 0.2f}};
+   371→        }
+   372→        case BuildKind::Floor:
+   373→            return {{gx, gy - 0.2f, gz}, {gx + CellSize, gy, gz + CellSize}};
+   374→        case BuildKind::Ramp:
+   375→            return {{gx, gy, gz}, {gx + CellSize, gy + CellSize, gz + CellSize}};
+   376→        case BuildKind::Roof:
+   377→        default:
+   378→            return {{gx, gy, gz}, {gx + CellSize, gy + CellSize * 0.6f, gz + CellSize}};
+   379→    }
+   380→}
+   381→
+   382→// ---------------------------------------------------------------------------
+   383→// Minimapa
+   384→// ---------------------------------------------------------------------------
+   385→void Game::bakeMinimap() {
+   386→    constexpr u32 M = 256;
+   387→    std::vector<u8> px(M * M * 4);
+   388→    const f32 worldPerTex = Terrain::Size / (f32)M;
+   389→    for (u32 ty = 0; ty < M; ++ty)
+   390→        for (u32 tx = 0; tx < M; ++tx) {
+   391→            const f32 x = -Terrain::Half + (f32)tx * worldPerTex;
+   392→            const f32 z = -Terrain::Half + (f32)ty * worldPerTex;
+   393→            const f32 h = m_terrain.height(x, z);
+   394→            vec3 c;
+   395→            if (h < 0.5f) {
+   396→                c = mix(vec3(0.10f, 0.30f, 0.55f), vec3(0.16f, 0.45f, 0.62f),
+   397→                        clamp01((h + 40.0f) / 40.0f));
+   398→            } else {
+   399→                const vec3 n = m_terrain.normal(x, z);
+   400→                c = m_terrain.biomeColor(x, z, h, 1.0f - n.y, m_terrain.moistureAt(x, z));
+   401→                c *= 0.75f + clamp01(n.y) * 0.35f;
+   402→            }
+   403→            const usize i = ((usize)ty * M + tx) * 4;
+   404→            px[i] = (u8)clamp01(c.r) * 255; px[i + 1] = (u8)clamp01(c.g) * 255;
+   405→            px[i + 2] = (u8)clamp01(c.b) * 255; px[i + 3] = 255;
+   406→        }
+   407→    m_minimapTex.create2D(M, M, TexFormat::RGBA8, px.data(), false, true);
+   408→    m_minimapReady = true;
+   409→}
+   410→
+   411→// ---------------------------------------------------------------------------
+   412→// Partida
+   413→// ---------------------------------------------------------------------------
+   414→void Game::startMatch() {
+   415→    // autobus: cruza la isla por una linea aleatoria
+   416→    Random rng(m_seed + (u32)m_time);
+   417→    const f32 a = rng.nextF32() * TAU_F;
+   418→    m_busDir = vec3(std::cos(a), 0, std::sin(a));
+   419→    const vec3 perp(-m_busDir.z, 0, m_busDir.x);
+   420→    const f32 off = rng.symmetric() * 600.0f;
+   421→    m_busPos = -m_busDir * (Terrain::Half * 0.62f) + perp * off;
+   422→    m_busPos.y = 380.0f;
+   423→
+   424→    m_playerPos = m_busPos;
+   425→    m_playerVel = vec3(0);
+   426→    m_gliding = false;
+   427→    m_falling = false;
+   428→    m_dropT = 0;
+   429→    m_hp = 100; m_shield = 0; m_kills = 0;
+   430→    m_wood = 60;               // un poco de material para probar construccion
+   431→    m_shieldPots = 1;
+   432→    for (auto& s : m_slots) s = WeaponInstance{};
+   433→    m_slots[0] = { WeaponKind::Pickaxe, 0, 0 };
+   434→    m_activeSlot = 0;
+   435→    m_buildMode = false;
+   436→    m_builds.clear();
+   437→    for (auto& c : m_chests) c.opened = false;
+   438→    for (auto& l : m_loot) l.taken = false;
+   439→    for (usize i = 0; i < m_treeData.size(); ++i) m_treeAlive[i] = true;
+   440→
+   441→    // bots: distribuidos en POIs y campos
+   442→    for (auto& bot : m_bots) {
+   443→        bot.alive = true;
+   444→        bot.hp = 100;
+   445→        bot.state = 0;
+   446→        const auto& pois = m_terrain.pois();
+   447→        if (rng.nextF32() < 0.75f) {
+   448→            const auto& poi = pois[rng.rangeU32((u32)pois.size())];
+   449→            const f32 aa = rng.nextF32() * TAU_F, rr = rng.nextF32() * poi.radius;
+   450→            bot.pos = vec3(poi.pos.x + std::cos(aa) * rr, 0, poi.pos.y + std::sin(aa) * rr);
+   451→        } else {
+   452→            bot.pos = vec3(rng.symmetric() * 1600.0f, 0, rng.symmetric() * 1600.0f);
+   453→        }
+   454→        bot.pos.y = m_terrain.height(bot.pos.x, bot.pos.z);
+   455→        bot.wanderTarget = vec2(bot.pos.x, bot.pos.z);
+   456→        bot.weapon = (WeaponKind)(1 + rng.rangeU32(4));
+   457→        bot.weaponRarity = (u8)rng.rangeU32(5);
+   458→        bot.fireCd = 1; bot.reactT = 0;
+   459→    }
+   460→
+   461→    // tormenta
+   462→    m_stormCenter = vec2(0, 0);
+   463→    m_stormRadius = 2300.0f;
+   464→    m_stormTargetRadius = 2300.0f;
+   465→    m_stormPhase = 0;
+   466→    m_stormTimer = 26.0f;
+   467→    m_stormShrinking = false;
+   468→    m_stormDps = 1.0f;
+   469→    m_stormTarget = vec2(0, 0);
+   470→
+   471→    m_killFeed.clear();
+   472→    rebuildCollision();
+   473→    m_state = State::Drop;
+   474→    ++m_matches;
+   475→}
+   476→
+   477→void Game::respawn() { startMatch(); }
+   478→
+   479→i32 Game::aliveCount() const {
+   480→    i32 n = 1;
+   481→    for (const auto& b : m_bots) if (b.alive) ++n;
+   482→    return n;
+   483→}
+   484→
+   485→// ---------------------------------------------------------------------------
+   486→// Tick principal
+   487→// ---------------------------------------------------------------------------
+   488→void Game::tick(f32 dt) {
+   489→    m_time += dt;
+   490→    m_env.time = m_time;
+   491→    m_hurtFlash = std::max(0.0f, m_hurtFlash - dt * 1.6f);
+   492→    m_hitMarker = std::max(0.0f, m_hitMarker - dt * 3.0f);
+   493→    m_interactHint = std::max(0.0f, m_interactHint - dt);
+   494→    for (auto it = m_killFeed.begin(); it != m_killFeed.end();) {
+   495→        it->t -= dt;
+   496→        if (it->t <= 0) it = m_killFeed.erase(it); else ++it;
+   497→    }
+   498→
+   499→    switch (m_state) {
+   500→        case State::Menu:   updateMenu(dt);   break;
+   501→        case State::Drop:   updateDrop(dt);   break;
+   502→        case State::Playing: updatePlaying(dt); break;
+   503→        case State::Dead:   m_deathT += dt; updateBots(dt); updateStorm(dt); updateParticles(dt); break;
+   504→        case State::Victory: updateParticles(dt); break;
+   505→        default: break;
+   506→    }
+   507→}
+   508→
+   509→void Game::updateMenu(f32 dt) {
+   510→    // rotacion panoramica de camara sobre la isla, mirando SIEMPRE al centro
+   511→    const f32 a = m_time * 0.05f;
+   512→    m_camera.pos = vec3(std::cos(a) * 950.0f, 300.0f, std::sin(a) * 950.0f);
+   513→    // forward=(sin yaw, ., cos yaw) debe apuntar de la camara al origen:
+   514→    // sin(yaw)=-cos(a), cos(yaw)=-sin(a)  ->  yaw = -a - pi/2
+   515→    m_camera.yaw = -a - PI_F * 0.5f;
+   516→    m_camera.pitch = -0.34f;
+   517→    m_camera.aspect = (f32)m_r->viewW() / (f32)m_r->viewH();
+   518→    m_camera.update();
+   519→    (void)dt;
+   520→}
+   521→
+   522→void Game::updateDrop(f32 dt) {
+   523→    m_dropT += dt;
+   524→    // el autobus avanza
+   525→    m_busPos += m_busDir * 55.0f * dt;
+   526→
+   527→    InputState& in = input();
+   528→    // mirada libre durante la caida
+   529→    m_playerYaw   -= in.mouseDX * in.sensitivity * in.mouseSensMult;
+   530→    m_playerPitch -= in.mouseDY * in.sensitivity * in.mouseSensMult;
+   531→    m_playerPitch = clamp(m_playerPitch, -1.45f, 1.45f);
+   532→    m_camera.yaw = m_playerYaw;
+   533→    m_camera.pitch = m_playerPitch;
+   534→
+   535→    const bool jump = in.keyPressed(GLFW_KEY_SPACE);
+   536→
+   537→    if (!m_falling) {
+   538→        // pegado al Carguero Nube; solo se puede saltar sobre la isla
+   539→        m_playerPos = m_busPos + vec3(0, -2.5f, 0);
+   540→        m_playerVel = m_busDir * 55.0f;
+   541→        const f32 distCenter = length(vec2(m_busPos.x, m_busPos.z));
+   542→        const f32 groundHere = m_terrain.height(m_busPos.x, m_busPos.z);
+   543→        const bool overIsland = distCenter < 1250.0f && groundHere > 5.0f;
+   544→        if ((jump && overIsland) || distCenter > Terrain::Half * 0.98f || m_dropT > 26.0f) {
+   545→            m_falling = true;
+   546→            audioSystem().play(Sfx::Jump, 0.8f);
+   547→        }
+   548→        // L = aterrizaje rapido (pruebas / saltarse la caida): cae en
+   549→        // zona de tierra firme a media distancia del centro (nunca agua)
+   550→        if (in.keyPressed(GLFW_KEY_L) || m_debugLandRequested) {
+   551→            m_debugLandRequested = false;
+   552→            m_falling = true;
+   553→            m_gliding = true;
+   554→            vec2 dir = normalize(vec2(m_playerPos.x, m_playerPos.z));
+   555→            if (!(dir.x == dir.x) || std::fabs(dir.x) + std::fabs(dir.y) < 1e-4f)
+   556→                dir = vec2(1, 0);                       // bus justo sobre el centro
+   557→            f32 dropR = 1300.0f;
+   558→            for (f32 r = 1300.0f; r > 250.0f; r -= 75.0f) {
+   559→                if (m_terrain.height(dir.x * r, dir.y * r) > 8.0f) { dropR = r; break; }
+   560→            }
+   561→            m_playerPos.x = dir.x * dropR;
+   562→            m_playerPos.z = dir.y * dropR;
+   563→            m_playerPos.y = m_terrain.height(m_playerPos.x, m_playerPos.z) + 60.0f;
+   564→        }
+   565→    } else {
+   566→        // caida / planeador
+   567→        const f32 ground = m_terrain.height(m_playerPos.x, m_playerPos.z);
+   568→        const f32 alt = m_playerPos.y - ground;
+   569→        if (!m_gliding && alt < 170.0f) {
+   570→            m_gliding = true;
+   571→            audioSystem().play(Sfx::Glide, 0.9f);
+   572→        }
+   573→        const f32 maxFall = m_gliding ? 8.0f : 42.0f;
+   574→        m_playerVel.y = std::max(m_playerVel.y - Gravity * dt, -maxFall);
+   575→        // control horizontal del planeador
+   576→        f32 fwd = 0, strafe = 0;
+   577→        if (in.keyDown(GLFW_KEY_W)) fwd += 1;
+   578→        if (in.keyDown(GLFW_KEY_S)) fwd -= 1;
+   579→        if (in.keyDown(GLFW_KEY_A)) strafe -= 1;
+   580→        if (in.keyDown(GLFW_KEY_D)) strafe += 1;
+   581→        const f32 speed = m_gliding ? 13.0f : 4.0f;
+   582→        const vec3 f = m_camera.forward(), r = m_camera.right();
+   583→        const vec3 want = (f * fwd + r * strafe) * speed;
+   584→        m_playerVel.x = want.x; m_playerVel.z = want.z;
+   585→        if (m_gliding) m_playerVel.x += m_camera.forward().x * 9.0f,
+   586→                       m_playerVel.z += m_camera.forward().z * 9.0f;
+   587→        m_playerPos += m_playerVel * dt;
+   588→
+   589→        if (m_playerPos.y <= ground + 0.1f) {
+   590→            m_playerPos.y = ground;
+   591→            m_falling = false;
+   592→            m_gliding = false;
+   593→            m_playerVel = vec3(0);
+   594→            m_state = State::Playing;
+   595→            m_onGround = true;
+   596→            audioSystem().play(Sfx::Land, 1.0f);
+   597→        }
+   598→    }
+   599→    // camara sigue la caida (por debajo del carguero para no clipear la gondola)
+   600→    m_playerYaw = m_camera.yaw;   // orientacion del cuerpo = camara
+   601→    m_camera.pos = m_playerPos + vec3(0, m_falling ? 1.5f : -1.0f, 0) - m_camera.forward() * 6.0f;
+   602→    m_camera.pos.y = std::max(m_camera.pos.y, m_terrain.height(m_camera.pos.x, m_camera.pos.z) + 1.5f);
+   603→    m_camera.update();
+   604→
+   605→    // los bots ya estan en el suelo (simplificacion)
+   606→    updateBots(dt);
+   607→    updateStorm(dt);
+   608→    updateParticles(dt);
+   609→}
+   610→
+   611→void Game::updatePlaying(f32 dt) {
+   612→    updatePlayer(dt);
+   613→    updateBots(dt);
+   614→    updateStorm(dt);
+   615→    updateBuild(dt);
+   616→    updateParticles(dt);
+   617→    updateCamera(dt);
+   618→    botsDiedCheck();
+   619→}
+   620→
+   621→void Game::updatePlayer(f32 dt) {
+   622→    InputState& in = input();
+   623→
+   624→    // --- mirada ---------------------------------------------------------------
+   625→    m_playerYaw   -= in.mouseDX * in.sensitivity * in.mouseSensMult;
+   626→    m_playerPitch -= in.mouseDY * in.sensitivity * in.mouseSensMult;
+   627→    m_playerPitch = clamp(m_playerPitch, -1.45f, 1.45f);
+   628→    m_ads = in.mouseDownB(GLFW_MOUSE_BUTTON_RIGHT);
+   629→
+   630→    // --- movimiento -----------------------------------------------------------
+   631→    f32 fwd = 0, strafe = 0;
+   632→    if (in.keyDown(GLFW_KEY_W)) fwd += 1;
+   633→    if (in.keyDown(GLFW_KEY_S)) fwd -= 1;
+   634→    if (in.keyDown(GLFW_KEY_A)) strafe -= 1;
+   635→    if (in.keyDown(GLFW_KEY_D)) strafe += 1;
+   636→    m_sprinting = in.keyDown(GLFW_KEY_LEFT_SHIFT) && fwd > 0.5f && !m_ads;
+   637→    const f32 speed = (m_ads ? WalkSpeed * 0.55f :
+   638→                      (m_sprinting ? SprintSpeed : WalkSpeed)) * (m_buildMode ? 1.0f : 1.0f);
+   639→    const vec3 f(std::sin(m_playerYaw), 0, std::cos(m_playerYaw));
+   640→    const vec3 r(f.z, 0, -f.x);
+   641→    vec3 move = f * fwd + r * strafe;
+   642→    if (length(move) > 0.01f) move = normalize(move) * speed;
+   643→
+   644→    // salto / gravedad
+   645→    const f32 ground = m_collision.groundHeight(m_playerPos.x, m_playerPos.z, m_playerPos.y);
+   646→    if (m_onGround && in.keyPressed(GLFW_KEY_SPACE)) {
+   647→        m_playerVel.y = JumpSpeed;
+   648→        m_onGround = false;
+   649→        audioSystem().play(Sfx::Jump, 0.5f, 1.3f);
+   650→    }
+   651→    if (!m_onGround) {
+   652→        m_playerVel.y -= Gravity * dt;
+   653→    }
+   654→
+   655→    // colision horizontal
+   656→    m_collision.moveCapsule(m_playerPos, move * dt, PlayerRadius, PlayerHeight);
+   657→
+   658→    // vertical
+   659→    m_playerPos.y += m_playerVel.y * dt;
+   660→    const f32 gh = m_collision.groundHeight(m_playerPos.x, m_playerPos.z, m_playerPos.y);
+   661→    if (m_playerPos.y <= gh + 0.02f) {
+   662→        if (m_playerVel.y < -14.0f) audioSystem().play(Sfx::Land, clamp01(-m_playerVel.y / 20.0f));
+   663→        m_playerPos.y = gh;
+   664→        m_playerVel.y = 0;
+   665→        m_onGround = true;
+   666→    } else if (m_playerPos.y > gh + 0.25f) {
+   667→        m_onGround = false;
+   668→    }
+   669→
+   670→    // tormenta: dano si estas fuera
+   671→    const f32 dc = distance(vec2(m_playerPos.x, m_playerPos.z), m_stormCenter);
+   672→    if (dc > m_stormRadius) {
+   673→        m_stormDmgT += dt;
+   674→        if (m_stormDmgT > 1.0f) {
+   675→            m_stormDmgT = 0;
+   676→            damagePlayer((i32)m_stormDps);
+   677→            audioSystem().play(Sfx::StormTick, 0.6f);
+   678→            emitParticle(m_playerPos + vec3(0, 1, 0), vec3(0, 2, 0), 0.5f, 0.6f,
+   679→                         vec4(0.6f, 0.3f, 0.9f, 0.8f), true);
+   680→        }
+   681→    }
+   682→
+   683→    // --- armas --------------------------------------------------------------
+   684→    updateCamera(dt);   // orienta la camara antes de disparar
+   685→    const WeaponInstance& wi = m_slots[m_activeSlot];
+   686→    const WeaponDef wd = weaponDef(wi.kind);
+   687→    m_fireCd -= dt;
+   688→    m_harvestCd -= dt;
+   689→
+   690→    // seleccion de slots
+   691→    for (i32 k = 0; k < 5; ++k)
+   692→        if (in.keyPressed(GLFW_KEY_1 + k)) { m_activeSlot = k; audioSystem().play(Sfx::Click, 0.5f); }
+   693→    if (in.mousePressedB(GLFW_MOUSE_BUTTON_LEFT) && !m_buildMode) {
+   694→        // click en menu no: capturado
+   695→    }
+   696→    // cambiar a pico con F
+   697→    if (in.keyPressed(GLFW_KEY_F)) { m_activeSlot = 0; audioSystem().play(Sfx::Click, 0.5f); }
+   698→
+   699→    // recargar
+   700→    if (in.keyPressed(GLFW_KEY_R) && wi.valid() && wi.ammo < wd.magSize) {
+
+[showing lines 1-700 of 1321; use offset=701 with limit to continue reading]
