@@ -1,5 +1,8 @@
 # SKYVAULT Royale — La Bóveda
 
+> ▶ **JUGAR AHORA (web, sin instalar nada):**
+> **<https://googlesitecom.github.io/skyvault-royale/>**
+
 Battle royale 3D con **motor 100% propio escrito en C++20** (sin engines, sin
 lógica de juego en JS). Un solo código fuente, tres objetivos:
 
@@ -22,12 +25,10 @@ código corra en escritorio y navegador.
 
 ## Jugar
 
-**Opción A — GitHub Pages (recomendada):** este repositorio incluye un
-workflow que compila la versión web y la publica automáticamente:
-
-1. Sube el repo a tu cuenta de GitHub (rama `main`).
-2. En el repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. Abre `https://TU_USUARIO.github.io/skyvault-royale/` 🎮
+**Opción A — GitHub Pages (recomendada, ya activa):** el workflow de este
+repositorio compila la versión web en cada push y la publica sola en
+**<https://googlesitecom.github.io/skyvault-royale/>**. Para tu propia cuenta:
+fork → Settings → Pages → Source: GitHub Actions.
 
 **Opción B — build precompilada:** la carpeta [`docs/`](docs/) contiene una
 build web lista. En **Settings → Pages → Source: Deploy from a branch →
