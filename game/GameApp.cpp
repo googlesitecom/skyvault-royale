@@ -100,11 +100,11 @@ void shutdown() {
 
 int main() {
     SV_LOG_INFO("app", "SKYVAULT Royale %s - compilado %s %s",
-                "v0.1 preview", __DATE__, __TIME__);
+                 "v0.3", __DATE__, __TIME__);
     SV_LOG_INFO("app", "Plataforma: %s", platformName());
 
     WindowDesc desc;
-    desc.title = "SKYVAULT Royale - La Bóveda (preview)";
+    desc.title = "SKYVAULT Royale - La Bóveda";
     desc.width = 1600;
     desc.height = 900;
     if (!g_window.init(desc)) return 1;

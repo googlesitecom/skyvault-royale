@@ -58,22 +58,28 @@ bool Window::init(const WindowDesc& desc) {
         SV_LOG_ERROR("platform", "glfwInit() fallo");
         return false;
     }
+    GLFWwindow* w = nullptr;
+    glfwWindowHint(GLFW_RESIZABLE, desc.resizable ? GLFW_TRUE : GLFW_FALSE);
 #ifdef SKYVAULT_WEB
     // WebGL2 (GLES3). GLFW-emsdf usa estos hints al crear el contexto.
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    w = glfwCreateWindow(desc.width, desc.height, desc.title, nullptr, nullptr);
 #else
-    // OpenGL 4.6 core
+    // OpenGL core: pide 4.6 y baja hasta 4.3 segun lo soporte el driver
+    // (llvmpipe/SwiftShader se quedan en 4.5; el motor usa un subconjunto
+    // comun que funciona desde 4.3)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    static const i32 versions[][2] = { {4, 6}, {4, 5}, {4, 4}, {4, 3} };
+    for (const auto& v : versions) {
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, v[0]);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, v[1]);
+        w = glfwCreateWindow(desc.width, desc.height, desc.title, nullptr, nullptr);
+        if (w) break;
+    }
 #endif
-    glfwWindowHint(GLFW_RESIZABLE, desc.resizable ? GLFW_TRUE : GLFW_FALSE);
-
-    m_width = desc.width; m_height = desc.height;
-    GLFWwindow* w = glfwCreateWindow(desc.width, desc.height, desc.title, nullptr, nullptr);
     if (!w) {
         SV_LOG_ERROR("platform", "glfwCreateWindow fallo (sin servidor grafico o sin WebGL2)");
         glfwTerminate();

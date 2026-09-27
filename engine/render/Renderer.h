@@ -38,17 +38,17 @@ struct Camera {
 // Entorno (sol, niebla, colores)
 // ---------------------------------------------------------------------------
 struct Env {
-    vec3 sunDir{normalize(vec3(0.35f, 0.55f, 0.25f))};
-    vec3 sunColor{1.38f, 1.22f, 0.98f};
+    vec3 sunDir{normalize(vec3(0.42f, 0.46f, 0.30f))};
+    vec3 sunColor{1.42f, 1.24f, 0.99f};
     vec3 ambient{0.52f, 0.56f, 0.64f};
     vec3 zenith{0.20f, 0.42f, 0.78f};
     vec3 horizon{0.72f, 0.82f, 0.92f};
     vec3 fogColor{0.68f, 0.79f, 0.90f};
     f32 fogDensity = 0.00022f;
     f32 cloudCover = 0.50f;
-    vec3 stormColor{0.55f, 0.25f, 0.85f};
+    vec3 stormColor{0.42f, 0.72f, 1.00f};   // azul claro estilo Fortnite
     f32 time = 0;
-    f32 windDirX = 0.8f, windDirZ = 0.6f, windStrength = 0.55f;
+    f32 windDirX = 0.8f, windDirZ = 0.6f, windStrength = 0.85f;
 };
 
 // ---------------------------------------------------------------------------
@@ -132,6 +132,10 @@ public:
     // --- frame -------------------------------------------------------------
     void beginFrame(const Camera& cam, const Env& env);
     void drawMesh(const Mesh& mesh, const mat4& model, const Material& mat);
+    // malla con piel (esqueleto): sube las matrices de articulacion y dibuja
+    // con el shader skinned (escena + sombras usan la misma pose)
+    void drawSkinned(const Mesh& mesh, const mat4& model, const Material& mat,
+                     const mat4* skinMatrices, u32 jointCount);
     // instancias: arboles, rocas, piezas de construccion, cofres...
     void drawInstances(const Mesh& mesh, const InstanceData* list, u32 count,
                        const Material& mat, bool castShadows = true);
@@ -168,6 +172,8 @@ private:
         const Mesh* mesh;
         mat4 model;
         Material mat;
+        u32 skinOffset = 0;      // indice en m_skinStorage (0 = sin piel)
+        u32 skinCount = 0;
     };
     struct InstanceBatch {
         const Mesh* mesh;
@@ -195,13 +201,16 @@ private:
     void rebuildTargets();
     [[nodiscard]] mat4 cascadeMatrix(u32 cascade, const Camera& cam, vec3& outCenter,
                                      f32& outRadius) const;
+    void uploadJoints(const mat4* skin, u32 count);
 
     // shaders
     Shader m_pbr;            // GLTF con texturas
     Shader m_pbrVC;          // vertex color (terreno)
     Shader m_pbrInst;        // instanciado + vertex color + viento
     Shader m_pbrGrass;       // instanciado + viento fuerte de pasto
-    Shader m_shadowStatic, m_shadowInst;
+    Shader m_pbrSkinTex;     // GLTF con texturas + esqueleto
+    Shader m_pbrSkinVC;      // vertex color + esqueleto
+    Shader m_shadowStatic, m_shadowInst, m_shadowSkin;
     Shader m_sky, m_water, m_storm, m_particle, m_ui;
     Shader m_bloomThreshold, m_blur, m_composite, m_final, m_linearize;
 
@@ -231,6 +240,9 @@ private:
     std::vector<InstanceBatch> m_instanced;
     std::vector<ParticleDraw> m_particlesAdd;
     std::vector<ParticleDraw> m_particlesAlpha;
+    std::vector<mat4> m_skinStorage;      // poses del frame (por draw call)
+    Texture m_jointTex;                   // RGBA32F: 4 texels por articulacion
+    static constexpr u32 MaxSkinJoints = 256;
     mat4 m_stormModel;
     bool m_stormVisible = false;
     Camera* m_frameCam = nullptr;

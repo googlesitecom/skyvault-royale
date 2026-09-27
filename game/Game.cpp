@@ -3,6 +3,7 @@
 // ============================================================================
 #include "game/Game.h"
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 
 namespace game {
@@ -18,29 +19,45 @@ WeaponDef Game::weaponDef(WeaponKind k) const {
     switch (k) {
         case WeaponKind::Pickaxe:
             d.name = "Pico"; d.damage = 20; d.fireInterval = 0.5f; d.range = 3.2f;
-            d.modelScale = 1.0f; d.modelOffset = vec3(0.32f, 1.25f, 0.25f); d.modelYaw = 0.6f;
+            d.modelScale = 0.95f;
+            // pico GLB: mango vertical (eje Y), cabeza cruzada en X
+            d.handYawPitchRoll = vec3(0.0f, 0.15f, 0.35f);
+            d.grip = vec3(0.0f, -0.35f, 0.0f);
+            d.twoHanded = false;
             break;
         case WeaponKind::Shotgun:
             d.name = "Escopeta Pistón"; d.damage = 9; d.pellets = 7; d.headMult = 1.6f;
             d.fireInterval = 0.95f; d.spread = 0.045f; d.magSize = 5; d.range = 60;
-            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.2f, 0.4f); d.modelYaw = 0.9f;
+            // escopeta GLB (node transforms): cano a lo largo de X
+            d.modelScale = 1.0f;
+            d.handYawPitchRoll = vec3(-1.5708f, 0.0f, 0.0f);
+            d.grip = vec3(0.02f, -0.06f, -0.28f);
             break;
         case WeaponKind::SMG:
-            d.name = "SMG Doble Cargador"; d.damage = 16; d.headMult = 1.5f;
+ d.name = "SMG Doble Cargador"; d.damage = 16; d.headMult = 1.5f;
             d.fireInterval = 0.085f; d.spread = 0.022f; d.magSize = 30; d.range = 120;
             d.automatic = true;
-            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.22f, 0.4f); d.modelYaw = 0.9f;
+            // subfusil GLB: almacenado vertical (eje Y largo) -> tumbar 90
+            d.modelScale = 1.1f;
+            d.handYawPitchRoll = vec3(0.0f, 1.5708f, 0.0f);
+            d.grip = vec3(0.0f, -0.05f, -0.12f);
             break;
         case WeaponKind::Rifle:
             d.name = "Fusil Escarabajo"; d.damage = 31; d.headMult = 1.7f;
             d.fireInterval = 0.165f; d.spread = 0.011f; d.magSize = 30; d.range = 200;
             d.automatic = true;
-            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.25f, 0.45f); d.modelYaw = 0.9f;
+            // rifle GLB: cano a lo largo de Z
+            d.modelScale = 1.05f;
+            d.handYawPitchRoll = vec3(0.0f, 0.0f, 0.0f);
+            d.grip = vec3(0.0f, -0.05f, -0.30f);
             break;
         case WeaponKind::Sniper:
             d.name = "Francotirador Bisonte"; d.damage = 108; d.headMult = 2.0f;
             d.fireInterval = 1.6f; d.spread = 0.002f; d.magSize = 1; d.range = 400;
-            d.modelScale = 1.0f; d.modelOffset = vec3(0.3f, 1.28f, 0.5f); d.modelYaw = 0.9f;
+            // francotirador GLB: cano a lo largo de Z, largo
+            d.modelScale = 1.0f;
+            d.handYawPitchRoll = vec3(0.0f, 0.0f, 0.0f);
+            d.grip = vec3(0.0f, -0.06f, -0.45f);
             break;
         default: break;
     }
@@ -68,9 +85,11 @@ bool Game::init(Renderer* renderer) {
     // modelos GLB del usuario (assets/models). Si faltan o fallan, el juego
     // usa los procedurales: nunca se rompe por un asset ausente.
     {
-        const char* charNames[1] = { "Jugador" };
-        (void)charNames;
         const char* weaponNames[5] = { "Pico", "Escopeta", "Subfusil", "Riflle", "Francotirador" };
+        // normalizacion a metros del eje mayor + horneado de node transforms:
+        // la Escopeta viene desmontada en espacio crudo y necesita su jerarquia
+        const f32 weaponNorm[5]   = { 1.15f, 1.15f, 0.95f, 1.25f, 1.55f };
+        const bool weaponBake[5]  = { false, true, false, false, false };
         const char* prefixes[3] = { "assets/models", "../assets/models", "/assets/models" };
         char path[256];
         bool any = false;
@@ -78,21 +97,55 @@ bool Game::init(Renderer* renderer) {
             std::snprintf(path, sizeof(path), "%s/Jugador.glb", pre);
             if (m_gltfChar.load(path, false, 1.85f)) {
                 m_gltfCharOk = true; any = true;
-                SV_LOG_INFO("game", "Personaje GLB cargado (%s)", pre);
+                SV_LOG_INFO("game", "Personaje GLB cargado (%s, skin=%d, clips=%zu)",
+                            pre, (i32)m_gltfChar.skinned, m_gltfChar.anims.size());
                 break;
             }
         }
-        const f32 weaponNorm[5] = { 1.15f, 1.15f, 0.95f, 1.25f, 1.55f };
         for (i32 w = 0; w < 5; ++w) {
             for (const char* pre : prefixes) {
                 std::snprintf(path, sizeof(path), "%s/%s.glb", pre, weaponNames[w]);
-                if (m_gltfWeapon[w].load(path, false, weaponNorm[w])) {
+                if (m_gltfWeapon[w].load(path, weaponBake[w], weaponNorm[w])) {
                     m_gltfWeaponOk[w] = true; any = true;
                     break;
                 }
             }
         }
         if (!any) SV_LOG_WARN("game", "Sin GLB: usando modelos procedurales");
+
+        // cache de articulaciones del rig del personaje
+        if (m_gltfCharOk) {
+            m_jHandR = m_gltfChar.findJoint("hand_r_038");
+            m_jHandL = m_gltfChar.findJoint("hand_l_011");
+            m_jHead = m_gltfChar.findJoint("head_068");
+            m_jThighL = m_gltfChar.findJoint("thigh_l_099");
+            m_jThighR = m_gltfChar.findJoint("thigh_r_0106");
+            m_jCalfL = m_gltfChar.findJoint("calf_l_0100");
+            m_jCalfR = m_gltfChar.findJoint("calf_r_0107");
+            m_jUpperarmL = m_gltfChar.findJoint("upperarm_l_09");
+            m_jUpperarmR = m_gltfChar.findJoint("upperarm_r_036");
+            m_jLowerarmL = m_gltfChar.findJoint("lowerarm_l_010");
+            m_jLowerarmR = m_gltfChar.findJoint("lowerarm_r_037");
+            m_jSpine01 = m_gltfChar.findJoint("spine_01_03");
+            m_jSpine02 = m_gltfChar.findJoint("spine_02_04");
+            m_jSpine03 = m_gltfChar.findJoint("spine_03_05");
+            m_jPelvis = m_gltfChar.findJoint("pelvis_02");
+            m_jNeck = m_gltfChar.findJoint("neck_01_066");
+            m_jClavicleL = m_gltfChar.findJoint("clavicle_l_08");
+            m_jClavicleR = m_gltfChar.findJoint("clavicle_r_035");
+            m_jFootL = m_gltfChar.findJoint("foot_l_0102");
+            m_jFootR = m_gltfChar.findJoint("foot_r_0109");
+            // clip de idle: el mas largo de los embebidos
+            m_idleClip = 0;
+            f32 bestDur = -1.0f;
+            for (u32 i = 0; i < m_gltfChar.anims.size(); ++i)
+                if (m_gltfChar.anims[i].duration > bestDur) {
+                    bestDur = m_gltfChar.anims[i].duration;
+                    m_idleClip = i;
+                }
+            SV_LOG_INFO("game", "Rig: manoR=%d manoL=%d musloL=%d clips=%zu (idle=%u)",
+                        m_jHandR, m_jHandL, m_jThighL, m_gltfChar.anims.size(), m_idleClip);
+        }
     }
 
     // personajes y armas procedurales (fallback si no hay GLB)
@@ -109,6 +162,7 @@ bool Game::init(Renderer* renderer) {
     m_grassMesh     = makeGrassMesh();
     m_airshipMesh   = makeAirshipMesh();
     m_roofMesh      = makeRoofMesh();
+    m_gliderMesh    = makeGliderMesh();
     m_rockMesh = makeRockMesh();
     m_chestMesh = makeChestMesh();
     m_boxMesh = makeUnitCube();
@@ -134,7 +188,7 @@ void Game::shutdown() {
     m_charMesh.destroy(); m_pickaxeMesh.destroy(); m_shotgunMesh.destroy();
     m_smgMesh.destroy(); m_rifleMesh.destroy(); m_sniperMesh.destroy();
     m_treeLeafyMesh.destroy(); m_treePineMesh.destroy(); m_grassMesh.destroy();
-    m_airshipMesh.destroy(); m_roofMesh.destroy();
+    m_airshipMesh.destroy(); m_roofMesh.destroy(); m_gliderMesh.destroy();
     m_gltfChar.destroy();
     for (auto& w : m_gltfWeapon) w.destroy();
     m_minimapTex.destroy();
@@ -268,61 +322,171 @@ Mesh Game::makePineTreeMesh() {
 }
 
 Mesh Game::makeGrassMesh() {
-    // 3 quads cruzados a 60 grados con gradiente base oscura -> punta clara
+    // mata de pasto: 6 briznas curvadas (3 segmentos cada una) con gradiente
+    // base oscura -> punta clara + flor ocasional. El viento del shader dobla
+    // por altura (hK^2), los vertices intermedios suavizan la curva.
     std::vector<Vertex> v;
     std::vector<u32> idx;
-    const vec3 base(0.17f, 0.28f, 0.11f), tip(0.47f, 0.70f, 0.24f);
-    const f32 W = 0.10f, H = 0.78f;
-    for (u32 k = 0; k < 3; ++k) {
-        const f32 a = (f32)k * (PI_F / 3.0f);
-        const vec3 d(std::cos(a), 0, std::sin(a));
-        const vec3 n(d.z, 0.35f, -d.x);
-        const u32 b = (u32)v.size();
-        const vec4 c0(base, 1), c1(tip, 1), c1b(tip * 1.08f, 1);
-        v.push_back({{-d.x * W, 0, -d.z * W}, n, {0, 0}, {1,0,0,1},{},{}, c0});
-        v.push_back({{ d.x * W, 0,  d.z * W}, n, {1, 0}, {1,0,0,1},{},{}, c0});
-        v.push_back({{ d.x * W * 0.55f, H,  d.z * W * 0.55f}, n, {1, 1}, {1,0,0,1},{},{}, c1});
-        v.push_back({{-d.x * W * 0.55f, H, -d.z * W * 0.55f}, n, {0, 1}, {1,0,0,1},{},{}, c1b});
-        idx.insert(idx.end(), {b, b + 1, b + 2, b, b + 2, b + 3});
+    const vec3 base(0.13f, 0.26f, 0.10f);
+    const vec3 tip(0.52f, 0.74f, 0.26f);
+    auto blade = [&](f32 angle, f32 W, f32 H, f32 lean, u32 seed) {
+        Random r(seed);
+        const f32 jH = 0.85f + r.nextF32() * 0.5f;      // altura por brizna
+        const vec3 d(std::cos(angle), 0, std::sin(angle));
+        const vec3 side(-d.z, 0, d.x);
+        const u32 b0 = (u32)v.size();
+        // 3 segmentos: y = 0, 0.45, 1.0 (punta estrecha y adelantada)
+        const f32 ys[4]  = {0.0f, 0.4f, 0.75f, 1.0f};
+        const f32 ws[4]  = {W, W * 0.8f, W * 0.5f, 0.0f};
+        const f32 fw[4]  = {0.0f, lean * 0.25f, lean * 0.6f, lean};
+        for (u32 s = 0; s < 4; ++s) {
+            const vec3 c0 = d * fw[s];
+            const vec3 c1 = d * fw[s] + side * -ws[s] * 0.5f;
+            const vec3 c2 = d * fw[s] + side * ws[s] * 0.5f;
+            const f32 y = ys[s] * H * jH;
+            const vec3 n(side.x, 0.42f, side.z);
+            const vec4 col = vec4(mix(base, tip, ys[s] * ys[s]), 1);
+            const u32 b = (u32)v.size();
+            v.push_back({{c1.x, y, c1.z}, n, {0, ys[s]}, {1,0,0,1},{},{}, col});
+            v.push_back({{c2.x, y, c2.z}, n, {1, ys[s]}, {1,0,0,1},{},{}, col});
+            v.push_back({{c0.x, y + 0.001f, c0.z}, n, {0.5f, ys[s]}, {1,0,0,1},{},{},
+                         vec4(col.r * 1.05f, col.g * 1.05f, col.b * 1.02f, 1)});
+            if (s > 0) {
+                const u32 p = b - 3;
+                idx.insert(idx.end(), {p,     p + 2, b + 2,
+                                       p,     b + 2, b,
+                                       p + 1, p + 2, b + 1,
+                                       p + 1, b + 1, b + 2});
+            }
+        }
+        (void)b0;
+    };
+    // 6 briznas en abanico
+    blade(0.15f,          0.10f, 0.82f,  0.16f, 11);
+    blade(PI_F * 0.33f,   0.11f, 0.95f,  0.30f, 23);
+    blade(PI_F * 0.66f,   0.09f, 0.70f, -0.22f, 37);
+    blade(PI_F + 0.4f,    0.10f, 0.88f, -0.34f, 51);
+    blade(PI_F * 1.4f,    0.12f, 1.00f,  0.25f, 67);
+    blade(PI_F * 1.75f,   0.09f, 0.75f, -0.12f, 83);
+    // flor: 2 quads cruzados pequeños arriba (color vivo por instancia)
+    {
+        const f32 y = 0.62f, S = 0.09f;
+        const vec3 n(0, 0.8f, 0.6f);
+        for (u32 k = 0; k < 2; ++k) {
+            const f32 a = (f32)k * PI_F * 0.5f;
+            const vec3 d(std::cos(a), 0, std::sin(a));
+            const u32 b = (u32)v.size();
+            const vec4 fc(1.0f, 0.94f, 0.55f, 1);
+            v.push_back({{-d.x * S, y, -d.z * S}, n, {0, 0}, {1,0,0,1},{},{}, fc});
+            v.push_back({{ d.x * S, y,  d.z * S}, n, {1, 0}, {1,0,0,1},{},{}, fc});
+            v.push_back({{ d.x * S * 0.4f, y + S, d.z * S * 0.4f}, n, {1, 1}, {1,0,0,1},{},{}, fc});
+            v.push_back({{-d.x * S * 0.4f, y + S, -d.z * S * 0.4f}, n, {0, 1}, {1,0,0,1},{},{}, fc});
+            idx.insert(idx.end(), {b, b + 1, b + 2, b, b + 2, b + 3});
+        }
     }
     return m_r->createMesh(v.data(), (u32)v.size(), idx.data(), (u32)idx.size());
 }
 
 Mesh Game::makeAirshipMesh() {
-    // Carguero Nube: envolvente elipsoidal con paneles + bandas oxidadas y aletas
+    // Carguero Nube estilo autobus de batalla: GLOBON aerostatico arriba +
+    // cabina de autobus colgando con 4 cables. Grande y bien visible.
     MeshBuilder b;
     b.seed = 91;
-    const vec3 cream(0.84f, 0.79f, 0.71f);
-    const vec3 creamDark(0.72f, 0.66f, 0.57f);
-    const vec3 rust(0.58f, 0.40f, 0.26f);
-    const vec3 belly(0.55f, 0.52f, 0.47f);
-    const u32 seg = 20, rings = 13;
-    const vec3 r(9.0f, 6.4f, 21.0f);
-    const u32 base = (u32)b.v.size();
-    for (u32 j = 0; j <= rings; ++j) {
-        const f32 phi = (f32)j / (f32)rings * PI_F - PI_F * 0.5f;
-        const f32 cy = std::sin(phi), cr = std::cos(phi);
-        const bool band = (j % 4) == 0;
-        for (u32 i = 0; i <= seg; ++i) {
-            const f32 th = (f32)i / (f32)seg * TAU_F;
-            const vec3 n(std::cos(th) * cr, cy, std::sin(th) * cr);
-            vec3 col = (j < 3) ? belly : (band ? mix(cream, rust, 0.45f)
-                              : ((i % 2) ? cream : creamDark));
-            const f32 nz = 0.9f + b.noise(base + j * 31 + i * 7) * 0.18f;
-            b.v.push_back(b.vert(n * r, n, {(f32)i / (f32)seg, (f32)j / (f32)rings},
-                                 vec4(col * nz, 1)));
+
+    // --- globon: elipsoide con paneles azules/crema y banda amarilla -------
+    {
+        const u32 seg = 22, rings = 15;
+        const vec3 r(10.5f, 8.6f, 15.5f);
+        const vec3 cream(0.88f, 0.86f, 0.80f);
+        const vec3 blue(0.20f, 0.44f, 0.86f);
+        const vec3 blueDark(0.15f, 0.33f, 0.68f);
+        const vec3 yellow(0.96f, 0.78f, 0.16f);
+        const u32 base = (u32)b.v.size();
+        for (u32 j = 0; j <= rings; ++j) {
+            const f32 phi = (f32)j / (f32)rings * PI_F - PI_F * 0.5f;
+            const f32 cy = std::sin(phi), cr = std::cos(phi);
+            for (u32 i = 0; i <= seg; ++i) {
+                const f32 th = (f32)i / (f32)seg * TAU_F;
+                const vec3 n(std::cos(th) * cr, cy, std::sin(th) * cr);
+                vec3 col = cream;
+                if (j >= 4 && j <= 5) col = yellow;                    // banda ecuador
+                else if (j > 5 && j < 11) col = (i / 3) % 2 ? blue : blueDark;
+                const f32 nz = 0.92f + b.noise(base + j * 31 + i * 7) * 0.14f;
+                b.v.push_back(b.vert(n * r, n, {(f32)i / (f32)seg, (f32)j / (f32)rings},
+                                     vec4(col * nz, 1)));
+            }
         }
+        for (u32 j = 0; j < rings; ++j)
+            for (u32 i = 0; i < seg; ++i) {
+                const u32 a = base + j * (seg + 1) + i;
+                b.idx.insert(b.idx.end(), {a, a + seg + 2, a + 1, a, a + seg + 1, a + seg + 2});
+            }
     }
-    for (u32 j = 0; j < rings; ++j)
-        for (u32 i = 0; i < seg; ++i) {
-            const u32 a = base + j * (seg + 1) + i;
-            b.idx.insert(b.idx.end(), {a, a + seg + 2, a + 1, a, a + seg + 1, a + seg + 2});
+    // --- aletas de cola del globon -------------------------------------------
+    b.box(vec3(-0.4f, 1.0f, -16.5f), vec3(0.4f, 7.0f, -10.0f), vec3(0.20f, 0.44f, 0.86f));
+    b.box(vec3(0.0f, -0.4f, -16.5f), vec3(7.0f, 0.4f, -10.0f), vec3(0.96f, 0.78f, 0.16f));
+
+    // --- cables: 4 tirantes desde el globon a la cabina ----------------------
+    const vec3 cableCol(0.16f, 0.17f, 0.20f);
+    for (i32 sx = -1; sx <= 1; sx += 2)
+        for (i32 sz = -1; sz <= 1; sz += 2)
+            b.box(vec3((f32)sx * 3.1f - 0.09f, -4.2f, (f32)sz * 5.4f - 0.09f),
+                  vec3((f32)sx * 3.1f + 0.09f, 1.6f, (f32)sz * 5.4f + 0.09f), cableCol);
+
+    // --- cabina del autobus: cuerpo azul con franja amarilla + ventanas ------
+    const vec3 busBody(0.23f, 0.47f, 0.82f);
+    const vec3 busDark(0.16f, 0.32f, 0.58f);
+    const vec3 busYellow(0.96f, 0.78f, 0.16f);
+    const vec3 busRoof(0.82f, 0.84f, 0.88f);
+    // cuerpo principal (chasis elevado, dejando ver ventanas abajo)
+    b.box(vec3(-2.6f, -6.8f, -6.6f), vec3(2.6f, -6.15f, 6.6f), busDark);      // faldon bajo
+    b.box(vec3(-2.6f, -6.15f, -6.6f), vec3(2.6f, -2.9f, 6.6f), busBody);      // cuerpo
+    b.box(vec3(-2.68f, -4.35f, -6.68f), vec3(2.68f, -3.95f, 6.68f), busYellow); // franja
+    b.box(vec3(-2.6f, -2.9f, -6.6f), vec3(2.6f, -2.45f, 6.6f), busRoof);      // techo
+    // morro (cabina de mando) con parabrisas
+    b.box(vec3(-2.35f, -6.3f, 6.6f), vec3(2.35f, -2.7f, 8.1f), busBody);
+    b.box(vec3(-2.0f, -5.6f, 8.05f), vec3(2.0f, -3.3f, 8.16f), vec3(0.35f, 0.72f, 0.95f)); // parabrisas
+    // ventanas laterales (cristal emisivo)
+    for (i32 k = 0; k < 4; ++k) {
+        const f32 z0 = -5.6f + (f32)k * 3.0f;
+        b.box(vec3(-2.68f, -5.7f, z0), vec3(-2.6f, -3.7f, z0 + 2.1f), vec3(0.30f, 0.66f, 0.92f));
+        b.box(vec3(2.6f, -5.7f, z0), vec3(2.68f, -3.7f, z0 + 2.1f), vec3(0.30f, 0.66f, 0.92f));
+    }
+    // tubos de escape traseros
+    b.box(vec3(-1.6f, -6.9f, -6.9f), vec3(-1.0f, -5.4f, -6.5f), vec3(0.35f, 0.36f, 0.40f));
+    b.box(vec3(1.0f, -6.9f, -6.9f), vec3(1.6f, -5.4f, -6.5f), vec3(0.35f, 0.36f, 0.40f));
+    return m_r->createMesh(b.v.data(), (u32)b.v.size(), b.idx.data(), (u32)b.idx.size());
+}
+
+Mesh Game::makeGliderMesh() {
+    // planeador: canopy curvo (ala) + 2 botavaras. Se ancla sobre la cabeza.
+    MeshBuilder b;
+    b.seed = 55;
+    const vec3 canopyA(0.98f, 0.72f, 0.10f);
+    const vec3 canopyB(0.94f, 0.82f, 0.16f);
+    const u32 span = 12;      // segmentos a lo ancho
+    const u32 chord = 3;      // segmentos hacia atras
+    const f32 W = 3.4f;       // semiancho
+    const f32 C = 1.5f;       // cuerda
+    const u32 base = (u32)b.v.size();
+    for (u32 j = 0; j <= chord; ++j)
+        for (u32 i = 0; i <= span; ++i) {
+            const f32 u = (f32)i / (f32)span * 2.0f - 1.0f;    // -1..1
+            const f32 v = (f32)j / (f32)chord;                 // 0..1
+            const f32 arch = (1.0f - u * u) * 0.85f;           // arco del canopy
+            const f32 pitch = v * 0.28f;                       // incursion
+            vec3 p(u * W, arch - v * 0.18f, -v * C + C * 0.35f);
+            vec3 n(0, 0.9f, 0.35f);
+            const vec3 col = ((i / 2) % 2) ? canopyA : canopyB;
+            b.v.push_back(b.vert(p, normalize(n), {u * 0.5f + 0.5f, v}, vec4(col, 1)));
         }
-    // aletas de cola: vertical + horizontal (paneles metalicos)
-    b.box(vec3(-0.35f, 1.0f, -22.5f), vec3(0.35f, 8.5f, -15.5f), vec3(0.50f, 0.36f, 0.24f));
-    b.box(vec3(-0.35f, -2.2f, -22.5f), vec3(0.35f, 1.0f, -15.5f), rust);
-    b.box(vec3(1.0f, -0.35f, -22.5f), vec3(8.5f, 0.35f, -15.5f), vec3(0.50f, 0.36f, 0.24f));
-    b.box(vec3(-2.2f, -0.35f, -22.5f), vec3(1.0f, 0.35f, -15.5f), rust);
+    for (u32 j = 0; j < chord; ++j)
+        for (u32 i = 0; i < span; ++i) {
+            const u32 a = base + j * (span + 1) + i;
+            b.idx.insert(b.idx.end(), {a, a + span + 2, a + 1, a, a + span + 1, a + span + 2});
+        }
+    // botavaras (tubos) desde el centro hacia los extremos
+    b.cylinder(vec3(0, 0.55f, 0.25f), -0.1f, 0.1f, W, W, vec3(0.20f, 0.22f, 0.26f), 6);
     return m_r->createMesh(b.v.data(), (u32)b.v.size(), b.idx.data(), (u32)b.idx.size());
 }
 
@@ -548,9 +712,11 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
     };
     static const vec3 windowCol(0.15f, 0.21f, 0.30f);
 
-    const f32 cell = clamp(poi.radius * 0.42f, 24.0f, 34.0f);
-    const i32 half = 2;                       // rejilla 5x5 (celda central = plaza)
+    const bool isCity = poi.buildingCount >= 6;
+    const f32 cell = isCity ? 46.0f : clamp(poi.radius * 0.42f, 30.0f, 40.0f);
+    const i32 half = isCity ? 3 : 2;             // rejilla 7x7 o 5x5 (plaza al centro)
     i32 buildings = 0;
+    const f32 floorH = isCity ? 4.0f : 3.6f;
 
     auto addBox = [&](vec3 mn, vec3 mx, vec3 col) {
         m_staticBoxes.push_back({AABB{mn, mx}, ColliderOwner::World, 0, false, 0});
@@ -560,6 +726,51 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
         m_decoBoxes.push_back({AABB{mn, mx}, col, emis});
     };
 
+    // --- calles: asfalto + aceras + farolas entre manzanas --------------------
+    {
+        const f32 streetW = isCity ? 9.0f : 7.0f;
+        const f32 len = cell * (f32)half + streetW;
+        for (i32 g = -half; g <= half; ++g) {
+            if (g == 0) continue;                 // la plaza es peatonal
+            for (i32 axis = 0; axis < 2; ++axis) {
+                const f32 line = (f32)g * cell;
+                const vec2 cc = axis == 0 ? vec2(poi.pos.x + line, poi.pos.y)
+                                          : vec2(poi.pos.x, poi.pos.y + line);
+                const f32 h0 = m_terrain.height(cc.x, cc.y);
+                if (h0 < 4.0f) continue;
+                const vec2 halfExt = axis == 0 ? vec2(len, streetW * 0.5f)
+                                              : vec2(streetW * 0.5f, len);
+                addBox(vec3(cc.x - halfExt.x, h0 - 0.55f, cc.y - halfExt.y),
+                       vec3(cc.x + halfExt.x, h0 - 0.42f, cc.y + halfExt.y),
+                       vec3(0.16f, 0.16f, 0.18f));            // asfalto
+                for (i32 s = -1; s <= 1; s += 2) {            // aceras
+                    const vec2 off = axis == 0 ? vec2(0, (f32)s * streetW * 0.62f)
+                                              : vec2((f32)s * streetW * 0.62f, 0);
+                    const vec2 ext = axis == 0 ? vec2(len, 1.2f) : vec2(1.2f, len);
+                    addBox(vec3(cc.x + off.x - ext.x, h0 - 0.55f, cc.y + off.y - ext.y),
+                           vec3(cc.x + off.x + ext.x, h0 - 0.30f, cc.y + off.y + ext.y),
+                           vec3(0.58f, 0.55f, 0.50f));
+                }
+                for (i32 k = -half; k <= half; ++k) {        // farolas
+                    if (k == 0) continue;
+                    const vec2 lp = axis == 0
+                        ? vec2(poi.pos.x + (f32)k * cell + cell * 0.5f,
+                               cc.y + streetW * 0.5f + 0.9f)
+                        : vec2(cc.x + streetW * 0.5f + 0.9f,
+                               poi.pos.y + (f32)k * cell + cell * 0.5f);
+                    const f32 lh = m_terrain.height(lp.x, lp.y);
+                    if (lh < 4.0f) continue;
+                    addBox(vec3(lp.x - 0.10f, lh, lp.y - 0.10f),
+                           vec3(lp.x + 0.10f, lh + 4.2f, lp.y + 0.10f),
+                           vec3(0.25f, 0.26f, 0.30f));
+                    addDeco(vec3(lp.x - 0.26f, lh + 4.0f, lp.y - 0.26f),
+                            vec3(lp.x + 0.26f, lh + 4.7f, lp.y + 0.26f),
+                            vec4(1.0f, 0.86f, 0.55f, 1), 0.85f);
+                }
+            }
+        }
+    }
+
     // --- edificio: planta rectangular con puerta, ventanas, plantas y tejado ----
     auto building = [&](vec2 c, f32 w, f32 d, i32 floors, u8 mat, u8 doorSide) {
         const f32 base = m_terrain.height(c.x, c.y);
@@ -568,7 +779,7 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
         const f32 dh2 = m_terrain.height(c.x - w * 0.5f, c.y - d * 0.5f);
         if (std::fabs(dh - base) > 3.5f || std::fabs(dh2 - base) > 3.5f) return;  // muy empinado
         const f32 y0 = base - 1.2f;                    // faldon enterrado (pendientes)
-        const f32 H = 3.6f;
+        const f32 H = floorH;
         const Pal& pal = pals[mat];
         const f32 tint = 0.9f + rng.nextF32() * 0.2f;
         const vec3 wall = pal.wall * tint;
@@ -604,11 +815,12 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
             // forjado entre plantas
             if (fl > 0)
                 addBox(vec3(x0, fy - 0.28f, z0), vec3(x1, fy, z1), pal.trim * 0.9f);
-            // ventanas (caras que no son puerta, cada planta): marco + cristal
+            // ventanas (cada planta): marcos + cristal; en torres, balcones
+            const i32 winPerSide = isCity ? 3 : 2;
             const f32 wy = fy + 1.15f, ww = 1.05f, wh = 1.35f, off = 0.06f;
             auto winX = [&](f32 x) {
-                for (i32 k = 0; k < 2; ++k) {
-                    const f32 zc = z0 + d * (0.3f + 0.4f * (f32)k);
+                for (i32 k = 0; k < winPerSide; ++k) {
+                    const f32 zc = z0 + d * (0.5f + (f32)(k - (winPerSide - 1) / 2) / (f32)winPerSide);
                     addDeco(vec3(x - off, wy, zc - ww * 0.5f), vec3(x + off, wy + wh, zc + ww * 0.5f),
                             vec4(pal.trim, 1), 0.0f);
                     addDeco(vec3(x - off * 1.6f, wy + 0.12f, zc - ww * 0.5f + 0.12f),
@@ -617,8 +829,8 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
                 }
             };
             auto winZ = [&](f32 z) {
-                for (i32 k = 0; k < 2; ++k) {
-                    const f32 xc = x0 + w * (0.3f + 0.4f * (f32)k);
+                for (i32 k = 0; k < winPerSide; ++k) {
+                    const f32 xc = x0 + w * (0.5f + (f32)(k - (winPerSide - 1) / 2) / (f32)winPerSide);
                     addDeco(vec3(xc - ww * 0.5f, wy, z - off), vec3(xc + ww * 0.5f, wy + wh, z + off),
                             vec4(pal.trim, 1), 0.0f);
                     addDeco(vec3(xc - ww * 0.5f + 0.12f, wy + 0.12f, z - off * 1.6f),
@@ -627,14 +839,37 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
                 }
             };
             if (fl > 0) { winX(x0); winX(x1); }
-            winZ(z0);
-            winZ(z1);
+            if (fl > 0 || doorSide != 2) winZ(z0);
+            if (fl > 0 || doorSide != 0) winZ(z1);
+            // antepechos de balcon en torres
+            if (isCity && floors >= 4 && fl > 0) {
+                addBox(vec3(x0 - 0.14f, fy + 0.05f, z0 - 0.14f), vec3(x0 + 0.14f, fy + 1.05f, z1 + 0.14f), pal.trim);
+                addBox(vec3(x1 - 0.14f, fy + 0.05f, z0 - 0.14f), vec3(x1 + 0.14f, fy + 1.05f, z1 + 0.14f), pal.trim);
+            }
         }
-        // tejado: a dos aguas (madera/piedra) o plano con alero (metal)
+        // tejado: a dos aguas (casas) o azotea con pretil/caseta/antena (torres)
         const f32 top = base + (f32)floors * H;
-        if (mat == 2) {
+        if (mat == 2 || (isCity && floors >= 4)) {
             addBox(vec3(c.x - w * 0.5f - 0.55f, top, c.y - d * 0.5f - 0.55f),
                    vec3(c.x + w * 0.5f + 0.55f, top + 0.38f, c.y + d * 0.5f + 0.55f), pal.roof);
+            if (isCity && floors >= 4) {
+                // pretil perimetral
+                addBox(vec3(c.x - w * 0.5f - 0.75f, top + 0.38f, c.y - d * 0.5f - 0.75f),
+                       vec3(c.x + w * 0.5f + 0.75f, top + 1.25f, c.y - d * 0.5f - 0.45f), pal.trim);
+                addBox(vec3(c.x - w * 0.5f - 0.75f, top + 0.38f, c.y + d * 0.5f + 0.45f),
+                       vec3(c.x + w * 0.5f + 0.75f, top + 1.25f, c.y + d * 0.5f + 0.75f), pal.trim);
+                addBox(vec3(c.x - w * 0.5f - 0.75f, top + 0.38f, c.y - d * 0.5f - 0.45f),
+                       vec3(c.x - w * 0.5f - 0.45f, top + 1.25f, c.y + d * 0.5f + 0.45f), pal.trim);
+                addBox(vec3(c.x + w * 0.5f + 0.45f, top + 0.38f, c.y - d * 0.5f - 0.45f),
+                       vec3(c.x + w * 0.5f + 0.75f, top + 1.25f, c.y + d * 0.5f + 0.45f), pal.trim);
+                // caseta de azotea + climatizador + antena roja
+                addBox(vec3(c.x - 1.6f, top + 0.38f, c.y - 1.4f), vec3(c.x + 1.6f, top + 2.3f, c.y + 1.4f), pal.wall * 1.05f);
+                addBox(vec3(c.x + w * 0.22f, top + 0.38f, c.y + d * 0.18f),
+                       vec3(c.x + w * 0.42f, top + 1.15f, c.y + d * 0.38f), vec3(0.68f, 0.70f, 0.72f));
+                if (floors >= 6)
+                    addBox(vec3(c.x - 0.08f, top + 2.3f, c.y - 0.08f),
+                           vec3(c.x + 0.08f, top + 5.5f, c.y + 0.08f), vec3(0.75f, 0.24f, 0.20f));
+            }
         } else {
             const f32 rh = 1.9f + rng.nextF32() * 1.1f;
             const bool ridgeAlongZ = w > d;
@@ -679,18 +914,26 @@ void Game::generateTown(Random& rng, const PoiDef& poi) {
         }
     };
 
-    // --- rejilla de calles -------------------------------------------------------
+    // --- manzanas: torres en ciudades, casas en pueblos -------------------------
     for (i32 gz = -half; gz <= half; ++gz)
         for (i32 gx = -half; gx <= half; ++gx) {
             if (gx == 0 && gz == 0) continue;                 // plaza central
-            if (rng.nextF32() < 0.22f) continue;              // solares vacios
+            if (rng.nextF32() < (isCity ? 0.10f : 0.22f)) continue;  // solares vacios
             const f32 jx = rng.symmetric() * 3.0f, jz = rng.symmetric() * 3.0f;
             const vec2 c(poi.pos.x + (f32)gx * cell + jx, poi.pos.y + (f32)gz * cell + jz);
             if (distance(c, poi.pos) > poi.radius * 1.05f) continue;
-            const f32 w = 8.0f + rng.nextF32() * 4.0f;
-            const f32 d = 7.0f + rng.nextF32() * 3.5f;
-            const i32 maxF = 1 + (i32)(poi.buildingCount / 2 + rng.nextF32() * 2.2f);
-            const i32 floors = 1 + (i32)rng.rangeU32((u32)clamp(maxF, 1, 3));
+            f32 w, d;
+            i32 floors;
+            if (isCity) {
+                w = 15.0f + rng.nextF32() * 7.0f;             // torres 4-9 plantas
+                d = 13.0f + rng.nextF32() * 6.0f;
+                floors = 4 + (i32)rng.rangeU32(6);
+            } else {
+                w = 10.0f + rng.nextF32() * 6.0f;             // casas 1-3 plantas
+                d = 8.5f + rng.nextF32() * 5.0f;
+                const i32 maxF = 1 + (i32)(poi.buildingCount / 2 + rng.nextF32() * 2.2f);
+                floors = 1 + (i32)rng.rangeU32((u32)clamp(maxF, 1, 3));
+            }
             const u8 mat = (u8)rng.rangeU32(3);
             // la puerta mira hacia la plaza
             const u8 doorSide = (std::fabs((f32)gx) > std::fabs((f32)gz))
@@ -1046,8 +1289,23 @@ void Game::startMatch() {
     m_stormDps = 1.0f;
     m_stormTarget = vec2(0, 0);
 
+#ifndef SKYVAULT_WEB
+    // pruebas: arma inicial y radio de tormenta configurables
+    if (const char* wenv = std::getenv("SV_WEAPON")) {
+        const i32 wk = std::clamp(std::atoi(wenv), 1, 4);
+        m_slots[1] = { (WeaponKind)wk, 2, 999 };
+        m_activeSlot = 1;
+    }
+    if (const char* senv = std::getenv("SV_STORM"))
+        m_stormRadius = m_stormTargetRadius = (f32)std::atof(senv);
+#endif
     m_killFeed.clear();
     rebuildCollision();
+    // reset de animacion + camara
+    m_animPhase = 0; m_animSpeedK = 0; m_animBlend = 0;
+    m_animIdleT = 0; m_landDip = 0; m_recoil = 0;
+    m_camFov = 70.0f;
+    m_camera.fovY = degToRad(70.0f);
     m_state = State::Drop;
     ++m_matches;
 }
@@ -1085,16 +1343,37 @@ void Game::tick(f32 dt) {
 }
 
 void Game::updateMenu(f32 dt) {
-    // rotacion panoramica de camara sobre la isla, mirando SIEMPRE al centro
-    const f32 a = m_time * 0.05f;
-    m_camera.pos = vec3(std::cos(a) * 950.0f, 300.0f, std::sin(a) * 950.0f);
-    // forward=(sin yaw, ., cos yaw) debe apuntar de la camara al origen:
-    // sin(yaw)=-cos(a), cos(yaw)=-sin(a)  ->  yaw = -a - pi/2
-    m_camera.yaw = -a - PI_F * 0.5f;
-    m_camera.pitch = -0.34f;
+    // pruebas automaticas: SV_AUTOSTART=1 arranca partida a los 4 s
+#ifndef SKYVAULT_WEB
+    if (const char* as = std::getenv("SV_AUTOSTART")) {
+        if (m_time > 4.0f) {
+            if (std::atoi(as) >= 2) m_debugLandRequested = true;  // aterriza ya
+            startMatch();
+            return;
+        }
+    }
+#endif
+    // LOBBY estilo Fortnite: el personaje sobre un pedestal flotante en el
+    // cielo (nubes + azul detras), la camara orbita lenta a la altura del pecho
+    const f32 a = m_time * 0.14f + 0.8f;
+    const f32 R = 4.6f;
+    m_camera.pos = m_menuCharPos + vec3(std::sin(a) * R, 1.35f, std::cos(a) * R);
+    // mira AL personaje (direccion camara->personaje, no al reves)
+    m_camera.yaw = std::atan2(m_menuCharPos.x - m_camera.pos.x,
+                              m_menuCharPos.z - m_camera.pos.z);
+    m_camera.pitch = -0.06f;
+    m_camera.fovY = degToRad(46.0f);
     m_camera.aspect = (f32)m_r->viewW() / (f32)m_r->viewH();
     m_camera.update();
-    (void)dt;
+
+    // pose del personaje del lobby: idle embebido del GLB, mira a la camara
+    if (m_gltfCharOk && m_gltfChar.skinned) {
+        const f32 yawToCam = m_camera.yaw;        // de cara a la camara
+        m_animIdleT += dt;
+        buildCharacterPose(m_menuCharPos, yawToCam, 0.0f, 0.0f, m_animIdleT,
+                           false, false, 0.0f, WeaponKind::Pickaxe, 0.0f, 0.0f,
+                           m_menuPose, m_menuSkin, m_menuHandMat);
+    }
 }
 
 void Game::updateDrop(f32 dt) {
@@ -1113,12 +1392,14 @@ void Game::updateDrop(f32 dt) {
     const bool jump = in.keyPressed(GLFW_KEY_SPACE);
 
     if (!m_falling) {
-        // pegado al Carguero Nube; solo se puede saltar sobre la isla
-        m_playerPos = m_busPos + vec3(0, -2.5f, 0);
+        // colgado del Carguero Nube (bajo la cabina, cable visible);
+        // la vista arranca mirando un poco hacia arriba para VER el autobus
+        m_playerPos = m_busPos + vec3(0, -8.4f, 0);
         m_playerVel = m_busDir * 55.0f;
+        if (m_dropT < 0.1f) m_playerPitch = 0.30f;
         const f32 distCenter = length(vec2(m_busPos.x, m_busPos.z));
         const f32 groundHere = m_terrain.height(m_busPos.x, m_busPos.z);
-        const bool overIsland = distCenter < 1250.0f && groundHere > 5.0f;
+        const bool overIsland = distCenter < 1500.0f && groundHere > 5.0f;
         if ((jump && overIsland) || distCenter > Terrain::Half * 0.98f || m_dropT > 26.0f) {
             m_falling = true;
             audioSystem().play(Sfx::Jump, 0.8f);
@@ -1172,11 +1453,15 @@ void Game::updateDrop(f32 dt) {
             m_playerVel = vec3(0);
             m_state = State::Playing;
             m_onGround = true;
+            m_landDip = 0.55f;                    // flexion de aterrizaje
             audioSystem().play(Sfx::Land, 1.0f);
         }
     }
-    // camara sigue la caida (por debajo del carguero para no clipear la gondola)
+    // camara sigue la caida (por debajo del carguero para no clipear)
     m_playerYaw = m_camera.yaw;   // orientacion del cuerpo = camara
+    m_camera.fovY = degToRad(m_falling ? 82.0f : 74.0f);   // vista amplia y epica
+    m_camera.aspect = (f32)m_r->viewW() / (f32)m_r->viewH();
+    m_camera.update();
     m_camera.pos = m_playerPos + vec3(0, m_falling ? 1.5f : -1.0f, 0) - m_camera.forward() * 6.0f;
     m_camera.pos.y = std::max(m_camera.pos.y, m_terrain.height(m_camera.pos.x, m_camera.pos.z) + 1.5f);
     m_camera.update();
@@ -1234,11 +1519,29 @@ void Game::updatePlayer(f32 dt) {
     // colision horizontal
     m_collision.moveCapsule(m_playerPos, move * dt, PlayerRadius, PlayerHeight);
 
+    // --- estado de animacion (avanza con la velocidad real) ------------------
+    {
+        const f32 hSpeed = length(vec2(m_playerVel.x, m_playerVel.z));
+        const f32 targetK = m_onGround ? clamp01(hSpeed / SprintSpeed) : 0.0f;
+        m_animSpeedK += (targetK - m_animSpeedK) * std::min(dt * 8.0f, 1.0f);
+        m_animBlend += ((m_animSpeedK > 0.08f ? 1.0f : 0.0f) - m_animBlend) *
+                       std::min(dt * 6.0f, 1.0f);
+        // frecuencia de zancada ~ velocidad
+        m_animPhase += hSpeed * dt * 1.35f;
+        m_animIdleT += dt * (1.0f - m_animBlend);
+        if (m_animPhase > TAU_F * 1000.0f) m_animPhase -= TAU_F * 1000.0f;
+        m_landDip  = std::max(0.0f, m_landDip - dt * 2.2f);
+        m_recoil   = std::max(0.0f, m_recoil - dt * 6.0f);
+    }
+
     // vertical
     m_playerPos.y += m_playerVel.y * dt;
     const f32 gh = m_collision.groundHeight(m_playerPos.x, m_playerPos.z, m_playerPos.y);
     if (m_playerPos.y <= gh + 0.02f) {
-        if (m_playerVel.y < -14.0f) audioSystem().play(Sfx::Land, clamp01(-m_playerVel.y / 20.0f));
+        if (m_playerVel.y < -14.0f) {
+            audioSystem().play(Sfx::Land, clamp01(-m_playerVel.y / 20.0f));
+            m_landDip = clamp01(-m_playerVel.y / 26.0f);   // flexion al caer
+        }
         m_playerPos.y = gh;
         m_playerVel.y = 0;
         m_onGround = true;
@@ -1255,7 +1558,7 @@ void Game::updatePlayer(f32 dt) {
             damagePlayer((i32)m_stormDps);
             audioSystem().play(Sfx::StormTick, 0.6f);
             emitParticle(m_playerPos + vec3(0, 1, 0), vec3(0, 2, 0), 0.5f, 0.6f,
-                         vec4(0.6f, 0.3f, 0.9f, 0.8f), true);
+                         vec4(0.45f, 0.72f, 1.0f, 0.8f), true);
         }
     }
 
@@ -1315,6 +1618,7 @@ void Game::updatePlayer(f32 dt) {
             fireWeapon(m_camera.pos, m_camera.forward());
             m_fireCd = wd.fireInterval;
             m_slots[m_activeSlot].ammo--;
+            m_recoil = 1.0f;                    // patada visual del arma
             if (wi.kind == WeaponKind::Sniper) audioSystem().play(Sfx::ShootSniper, 0.9f);
             else if (wi.kind == WeaponKind::Shotgun) audioSystem().play(Sfx::ShootHeavy, 0.85f);
             else audioSystem().play(Sfx::Shoot, 0.75f, wi.kind == WeaponKind::SMG ? 1.2f : 1.0f);
@@ -1353,13 +1657,22 @@ void Game::updatePlayer(f32 dt) {
 void Game::updateCamera(f32) {
     const f32 shoulder = m_ads ? 0.28f : 0.55f;
     const f32 dist = m_ads ? 1.6f : 3.4f;
-    const vec3 f = m_camera.forward();   // ya usa yaw/pitch? -> mantener coherente
     // orientacion de camara desde yaw/pitch del jugador
     m_camera.yaw = m_playerYaw;
     m_camera.pitch = m_playerPitch;
+    // fov dinamico: ADS estrecho, sprint amplio (suavizado)
+    {
+        const f32 targetFov = m_ads ? 50.0f : (m_sprinting ? 78.0f : 70.0f);
+        m_camFov += (targetFov - m_camFov) * 0.18f;
+        m_camera.fovY = degToRad(m_camFov);
+    }
     m_camera.update();
     const vec3 fw = m_camera.forward(), rt = m_camera.right();
-    vec3 eye = m_playerPos + vec3(0, 1.68f, 0) + rt * shoulder - fw * dist;
+    // flexion de aterrizaje: la camara baja un instante
+    const f32 dip = m_landDip * 0.35f;
+    vec3 eye = m_playerPos + vec3(0, 1.68f - dip, 0) + rt * shoulder - fw * dist;
+    // retroceso: empuja la camara al frente al disparar
+    eye += fw * m_recoil * 0.12f;
     // no atravesar el terreno
     const f32 th = m_terrain.height(eye.x, eye.z);
     if (eye.y < th + 0.35f) eye.y = th + 0.35f;
@@ -1683,6 +1996,14 @@ void Game::updateBots(f32 dt) {
         // suaviza yaw
         f32 dy = wrapAngle(bot.targetYaw - bot.yaw);
         bot.yaw += clamp(dy, -4.0f * dt, 4.0f * dt);
+        // animacion: zancada con la velocidad real
+        {
+            const f32 sp = length(vec2(move.x, move.z));
+            const f32 targetK = clamp01(sp / 5.5f);
+            bot.animSpeedK += (targetK - bot.animSpeedK) * std::min(dt * 8.0f, 1.0f);
+            bot.animPhase += sp * dt * 1.35f;
+            bot.animT += dt * (bot.animSpeedK > 0.08f ? 0.0f : 1.0f);
+        }
     }
 }
 

@@ -13,12 +13,24 @@ static bool compileStage(u32 type, const char* src, const Shader::Define* defs,
     using namespace gl;
     out = glCreateShader(type);
 
-    // Prelude por plataforma + defines
+    // Prelude por plataforma + defines. La version GLSL desktop se adapta al
+    // contexto (llvmpipe solo llega a 4.50; el motor funciona desde 4.30)
     std::string prelude;
 #ifdef SKYVAULT_WEB
     prelude = "#version 300 es\nprecision highp float;\nprecision highp int;\n";
 #else
-    prelude = "#version 460 core\n";
+    static i32 cachedVer = -1;
+    if (cachedVer < 0) {
+        const std::string v = reinterpret_cast<const char*>(
+            glGetString(0x8B8C /*GL_SHADING_LANGUAGE_VERSION*/));
+        i32 mj = 4, mn = 50;
+        std::sscanf(v.c_str(), "%d.%d", &mj, &mn);
+        cachedVer = mj * 100 + mn;             // "4.50" -> 450
+        if (cachedVer < 330) cachedVer = 330;  // minimo soportado por el motor
+    }
+    char ver[32];
+    std::snprintf(ver, sizeof(ver), "#version %d core\n", cachedVer);
+    prelude = ver;
 #endif
     for (usize i = 0; i < defCount; ++i)
         prelude += sv::format("#define %s %d\n", defs[i].name, defs[i].value);
@@ -121,6 +133,7 @@ bool Texture::create2D(i32 width, i32 height, TexFormat format, const void* data
         case TexFormat::RGBA16F:internal = GL_RGBA16F;pixFmt = GL_RGBA; pixType = GL_HALF_FLOAT;    break;
         case TexFormat::Depth24:internal = (i32)GL_DEPTH_COMPONENT24; pixFmt = GL_DEPTH_COMPONENT; pixType = GL_UNSIGNED_INT; break;
         case TexFormat::R8:     internal = GL_R8;     pixFmt = GL_RED;  pixType = GL_UNSIGNED_BYTE; break;
+        case TexFormat::RGBA32F:internal = 0x8814 /*GL_RGBA32F*/; pixFmt = GL_RGBA; pixType = GL_FLOAT; break;
     }
     glTexImage2D(GL_TEXTURE_2D, 0, internal, w, h, 0, pixFmt, pixType, data);
     if (mips) glGenerateMipmap(GL_TEXTURE_2D);
@@ -135,6 +148,13 @@ bool Texture::uploadRGBA(i32 width, i32 height, const u8* data, bool mips) {
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
     if (mips) glGenerateMipmap(GL_TEXTURE_2D);
     return true;
+}
+
+void Texture::uploadRowsF32(i32 x, i32 y, i32 width, i32 height, const f32* data) {
+    using namespace gl;
+    if (!tex) return;
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, width, height, GL_RGBA, GL_FLOAT, data);
 }
 
 void Texture::destroy() {

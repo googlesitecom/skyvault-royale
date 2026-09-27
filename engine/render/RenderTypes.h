@@ -45,7 +45,7 @@ private:
 // ---------------------------------------------------------------------------
 // Texture
 // ---------------------------------------------------------------------------
-enum class TexFormat : u32 { RGBA8, SRGB8, RGBA16F, Depth24, R8 };
+enum class TexFormat : u32 { RGBA8, SRGB8, RGBA16F, Depth24, R8, RGBA32F };
 
 struct Texture {
     u32 tex  = 0;
@@ -56,6 +56,8 @@ struct Texture {
                   bool mips = false, bool clamp = true);
     // Sube datos RGBA8 desde memoria (stb_image) y genera mips
     bool uploadRGBA(i32 width, i32 height, const u8* data, bool mips = true);
+    // Sube un bloque de texels float (matrices de piel, texturas de datos)
+    void uploadRowsF32(i32 x, i32 y, i32 width, i32 height, const f32* data);
     void destroy();
     void bind(u32 unit) const { gl::glActiveTexture(gl::GL_TEXTURE0 + unit); gl::glBindTexture(gl::GL_TEXTURE_2D, tex); }
 };

@@ -131,7 +131,7 @@ float shadowFactor(vec3 worldPos, float viewDepth) {
 )GLSL";
 
 // ---------------------------------------------------------------------------
-// PBR: geometria del mundo. Defines: INSTANCED, VERTEXCOLOR, WIND
+// PBR: geometria del mundo. Defines: INSTANCED, VERTEXCOLOR, WIND, SKINNED
 // ---------------------------------------------------------------------------
 inline constexpr const char* PbrVert = R"GLSL(
 uniform mat4 uViewProj;
@@ -139,12 +139,17 @@ uniform mat4 uModel;
 uniform float uTime;
 uniform vec3  uWindDir;
 uniform float uWindStrength;
+#ifdef SKINNED
+uniform sampler2D uJoints;
+#endif
 
 in vec3 aPos;
 in vec3 aNormal;
 in vec2 aUV;
 in vec4 aTangent;
 in vec4 aColor;
+in vec4 aJoint;
+in vec4 aWeight;
 #ifdef INSTANCED
 in mat4 aInstance;
 in vec4 aInstanceColor;
@@ -157,12 +162,34 @@ out vec4 vColor;
 out vec4 vTangent;
 out float vViewDepth;
 
+#ifdef SKINNED
+mat4 boneMat(int j) {
+    return mat4(texelFetch(uJoints, ivec2(j * 4 + 0, 0), 0),
+                texelFetch(uJoints, ivec2(j * 4 + 1, 0), 0),
+                texelFetch(uJoints, ivec2(j * 4 + 2, 0), 0),
+                texelFetch(uJoints, ivec2(j * 4 + 3, 0), 0));
+}
+#endif
+
 void main() {
     mat4 model = uModel;
 #ifdef INSTANCED
     model = model * aInstance;
 #endif
-    vec4 wp = model * vec4(aPos, 1.0);
+    vec4 wp;
+#ifdef SKINNED
+    // piel: 4 influencias por vertice (aJoint = byte crudo 0..N)
+    ivec4 j = ivec4(aJoint + 0.5);
+    mat4 skin = boneMat(j.x) * aWeight.x + boneMat(j.y) * aWeight.y
+              + boneMat(j.z) * aWeight.z + boneMat(j.w) * aWeight.w;
+    wp = model * skin * vec4(aPos, 1.0);
+    vNormal = normalize(mat3(model) * (mat3(skin) * aNormal));
+    vTangent = vec4(normalize(mat3(model) * (mat3(skin) * aTangent.xyz)), aTangent.w);
+#else
+    wp = model * vec4(aPos, 1.0);
+    vNormal = normalize(mat3(model) * aNormal);
+    vTangent = vec4(normalize(mat3(model) * aTangent.xyz), aTangent.w);
+#endif
 #ifdef WIND
 #ifdef WIND_GRASS
     // pasto: respuesta fuerte con rachas y aleteo de alta frecuencia
@@ -182,9 +209,7 @@ void main() {
 #endif
 #endif
     vWorld = wp.xyz;
-    vNormal = normalize(mat3(model) * aNormal);
     vUV = aUV;
-    vTangent = vec4(normalize(mat3(model) * aTangent.xyz), aTangent.w);
     vColor = vec4(1.0);
 #ifdef VERTEXCOLOR
     vColor *= aColor;
@@ -266,12 +291,23 @@ void main() {
 )GLSL";
 
 // ---------------------------------------------------------------------------
-// Paso de sombras (solo profundidad)
+// Paso de sombras (solo profundidad). Define: SKINNED
 // ---------------------------------------------------------------------------
 inline constexpr const char* ShadowVert = R"GLSL(
 uniform mat4 uLightVP;
 uniform mat4 uModel;
+#ifdef SKINNED
+uniform sampler2D uJoints;
+mat4 boneMat(int j) {
+    return mat4(texelFetch(uJoints, ivec2(j * 4 + 0, 0), 0),
+                texelFetch(uJoints, ivec2(j * 4 + 1, 0), 0),
+                texelFetch(uJoints, ivec2(j * 4 + 2, 0), 0),
+                texelFetch(uJoints, ivec2(j * 4 + 3, 0), 0));
+}
+#endif
 in vec3 aPos;
+in vec4 aJoint;
+in vec4 aWeight;
 #ifdef INSTANCED
 in mat4 aInstance;
 #endif
@@ -280,7 +316,14 @@ void main() {
 #ifdef INSTANCED
     model = model * aInstance;
 #endif
+#ifdef SKINNED
+    ivec4 j = ivec4(aJoint + 0.5);
+    mat4 skin = boneMat(j.x) * aWeight.x + boneMat(j.y) * aWeight.y
+              + boneMat(j.z) * aWeight.z + boneMat(j.w) * aWeight.w;
+    gl_Position = uLightVP * model * skin * vec4(aPos, 1.0);
+#else
     gl_Position = uLightVP * model * vec4(aPos, 1.0);
+#endif
 }
 )GLSL";
 
@@ -398,7 +441,11 @@ out vec2 vNdcRaw;
 out float vWaterDepth;
 void main() {
     vec4 wp = uModel * vec4(aPos, 1.0);
-    wp.y += sin(wp.x * 0.06 + uTime * 1.1) * 0.14 + sin(wp.z * 0.09 + uTime * 1.7) * 0.11;
+    // oleaje multiple: swell largo + ondulacion media + rizado corto
+    wp.y += sin(wp.x * 0.028 + uTime * 0.90) * 0.42
+          + sin(wp.z * 0.037 - uTime * 1.15) * 0.34
+          + sin(dot(wp.xz, vec2(0.071, -0.048)) + uTime * 1.65) * 0.18
+          + sin(dot(wp.xz, vec2(-0.052, 0.089)) + uTime * 2.10) * 0.12;
     vWorld = wp.xyz;
     vec4 cp = uViewProj * wp;
     vNdcRaw = cp.xy / cp.w;
@@ -427,9 +474,11 @@ in float vWaterDepth;
 
 float waterHeight(vec2 p) {
     float t = uTime;
-    float h = sin(dot(p, vec2(0.060, 0.020)) + t * 1.05) * 0.14
-            + sin(dot(p, vec2(-0.045, 0.085)) + t * 1.60) * 0.10
-            + sin(dot(p, vec2(0.140, -0.110)) + t * 2.30) * 0.05;
+    float h = sin(dot(p, vec2(0.028, 0.011)) + t * 0.90) * 0.42
+            + sin(dot(p, vec2(-0.031, 0.037)) - t * 1.15) * 0.34
+            + sin(dot(p, vec2(0.071, -0.048)) + t * 1.65) * 0.18
+            + sin(dot(p, vec2(-0.052, 0.089)) + t * 2.10) * 0.12
+            + sin(dot(p, vec2(0.140, -0.110)) + t * 2.60) * 0.05;
     return h;
 }
 vec3 waterNormal(vec2 p, float distFade) {
@@ -437,14 +486,14 @@ vec3 waterNormal(vec2 p, float distFade) {
     float hx = waterHeight(p + vec2(e, 0)) - waterHeight(p - vec2(e, 0));
     float hz = waterHeight(p + vec2(0, e)) - waterHeight(p - vec2(0, e));
     float t = uTime;
-    // 3 capas de rizado suaves (escala creciente, amplitud decreciente).
+    // 4 capas de rizado suaves (escala creciente, amplitud decreciente).
     // distFade apaga el detalle alto-frecuencia a lo lejos (evita aliasing
     // en mosaico cuando cada celda de ruido cae en pocos pixeles)
     float r1 = vnoise2(p * 0.28 + vec2(t * 0.50,  t * 0.28)) - 0.5;
     float r2 = vnoise2(p * 0.51 + vec2(-t * 0.38, t * 0.55)) - 0.5;
     float r3 = vnoise2(p * 0.92 + vec2(t * 0.70, -t * 0.60)) - 0.5;
     float r4 = vnoise2(p * 1.80 + vec2(-t * 0.90, t * 1.10)) - 0.5;
-    vec2 grad = vec2(hx, hz) * 0.30 * mix(0.35, 1.0, distFade)
+    vec2 grad = vec2(hx, hz) * 0.42 * mix(0.35, 1.0, distFade)
               + vec2(r1 * 0.24 + r2 * 0.16 + r3 * 0.09,
                      r2 * 0.22 + r3 * 0.13 + r1 * 0.11) * mix(0.3, 1.0, distFade)
               + vec2(r4 * 0.10, r4 * 0.08) * distFade * distFade;
@@ -466,12 +515,12 @@ void main() {
     vec3 rsky = mix(uHorizon, uZenith, clamp(N.y, 0.0, 1.0));
     refl = mix(rsky, refl, 0.85);
 
-    // absorcion: color del agua por profundidad sobre el lecho
+    // absorcion: color del agua por profundidad sobre el lecho (turquesa Ch2)
     float sceneLin = texture(uSceneDepth, suv).r * uNearFar.y;   // metros
     float under = max(sceneLin - vWaterDepth, 0.0);              // metros de agua
-    vec3 shallowCol = vec3(0.16, 0.54, 0.52);
-    vec3 deep       = vec3(0.012, 0.085, 0.155);
-    vec3 waterCol = mix(shallowCol, deep, 1.0 - exp(-under / 5.5));
+    vec3 shallowCol = vec3(0.16, 0.62, 0.58);
+    vec3 deep       = vec3(0.014, 0.13, 0.26);
+    vec3 waterCol = mix(shallowCol, deep, 1.0 - exp(-under / 6.5));
 
     // combinacion specular/difusa del cuerpo de agua
     vec3 color = mix(waterCol, refl, clamp(fres * 1.05, 0.0, 1.0));
@@ -500,7 +549,8 @@ void main() {
 )GLSL";
 
 // ---------------------------------------------------------------------------
-// Muro de tormenta (aditivo translucido)
+// Muro de tormenta estilo Fortnite: azul claro casi transparente con lineas
+// verticales de energia que descienden y parpadean
 // ---------------------------------------------------------------------------
 inline constexpr const char* StormVert = R"GLSL(
 uniform mat4 uViewProj;
@@ -522,24 +572,49 @@ uniform vec3 uCameraPos;
 uniform float uTime;
 uniform vec3 uStormColor;
 uniform vec3 uFogColor;
+uniform float uCircumference;   // perimetro del muro (para espaciar lineas)
 in vec2 vUV;
 in vec3 vWorld;
+
+float stormLineMask(float x01, float height) {
+    // lineas verticales separadas ~3.2 m a lo largo del perimetro
+    float count = max(uCircumference / 3.2, 24.0);
+    float lx = fract(x01 * count + uTime * 0.008);
+    float d = min(lx, 1.0 - lx);              // distancia al centro de linea
+    float w = 0.055 + 0.03 * sin(uTime * 2.0 + floor(x01 * count) * 1.7);
+    float line = smoothstep(w, 0.0, d);
+    // cada linea titila independiente y desciende lenta
+    float flick = 0.55 + 0.45 * sin(uTime * 3.1 + floor(x01 * count) * 2.39996);
+    // mas intensas abajo, se desvanecen arriba
+    return line * flick * height;
+}
+
 void main() {
-    float n = fbm2(vec2(vWorld.xz * 0.012 + vec2(0.0, uTime * 0.16)), 4);
-    float n2 = fbm2(vec2(vWorld.xz * 0.03 - vec2(uTime * 0.1, 0.0)), 3);
-    float vertical = pow(1.0 - vUV.y, 1.6);
-    float bands = smoothstep(0.35, 0.75, n * 0.65 + n2 * 0.35);
-    float a = vertical * (0.30 + bands * 0.60);
-    vec3 col = uStormColor * (0.9 + bands * 1.4);
-    // relampagos ocasionales (celdas de ruido por tiempo)
-    float cell = hash13(vec3(floor(vWorld.x * 0.015), floor(uTime * 2.0), floor(vWorld.z * 0.015)));
-    float flash = step(0.9965, cell) * vertical;
-    col += vec3(0.85, 0.75, 1.0) * flash * 1.6;
-    a = min(a + flash * 0.35, 1.0);
+    // ruido suave de fondo (neblina energetica)
+    float n = fbm2(vec2(vWorld.xz * 0.010 + vec2(0.0, uTime * 0.10)), 3);
+    float n2 = fbm2(vec2(vWorld.xz * 0.028 - vec2(uTime * 0.07, 0.0)), 3);
+    float hFade = pow(1.0 - vUV.y, 1.35);          // 1 abajo, 0 arriba
+    float bands = smoothstep(0.30, 0.72, n * 0.6 + n2 * 0.4);
+
+    // LINEAS VERTICALES estilo Fortnite (el sello visual)
+    float lines = stormLineMask(vUV.x, hFade);
+    // conjunto secundario mas fino y tenue (profundidad)
+    float lines2 = stormLineMask(vUV.x * 1.0 + 0.473, hFade) * 0.45;
+
+    float a = hFade * (0.075 + bands * 0.10) + lines * 0.42 + lines2 * 0.18;
+    vec3 col = uStormColor * (0.75 + bands * 0.35)
+             + vec3(0.62, 0.85, 1.0) * (lines + lines2) * 1.05;
+
+    // destello electrico ocasional muy sutil (azul blanco)
+    float cell = hash13(vec3(floor(vWorld.x * 0.02), floor(uTime * 2.0), floor(vWorld.z * 0.02)));
+    float flash = step(0.9975, cell) * hFade;
+    col += vec3(0.85, 0.93, 1.0) * flash * 1.2;
+    a = min(a + flash * 0.20, 1.0);
+
     float dist = length(uCameraPos - vWorld);
     float fog = 1.0 - exp(-dist * 0.0012);
-    col = mix(col, uFogColor, clamp(fog, 0.0, 0.6));
-    FragColor = vec4(col, a);
+    col = mix(col, uFogColor, clamp(fog, 0.0, 0.55));
+    FragColor = vec4(col, clamp(a, 0.0, 1.0));
 }
 )GLSL";
 

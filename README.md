@@ -16,6 +16,28 @@ Los shaders se escriben en el subconjunto común GLSL 300 es / 460 core
 (preludio inyectado por plataforma), sin DSA ni compute, para que el mismo
 código corra en escritorio y navegador.
 
+## Novedades v0.3 — "Estilo Fortnite"
+
+- **Animación esquelética real**: el personaje (GLB con rig de 167 huesos) se
+  anima con GPU skinning — idle embebido del modelo + locomoción, apuntado,
+  caída, planeo y golpe de pico procedurales. Los bots también se animan.
+- **Armas ancladas a la mano** del esqueleto (siguen el brazo al apuntar).
+- **Lobby estilo Fortnite**: personaje sobre pedestal flotante entre nubes,
+  botón **JUGAR** amarillo abajo a la derecha, degradado azul.
+- **Autobús de batalla**: globo aerostático + cabina azul; el jugador cuelga
+  de un cable y el autobús sigue volando tras saltar. **Planeador** al abrir.
+- **Tormenta estilo Fortnite**: muro azul claro casi transparente con líneas
+  verticales de energía.
+- **Mapa ~2 km con 14 POIs**: 3 ciudades con torres de 4–9 plantas, azoteas
+  con pretil/caseta/antena, calles de asfalto con aceras y farolas, pueblos
+  con casas y tejados a dos aguas.
+- **HUD Capítulo 2**: barras abajo-izquierda, slots abajo-derecha, minimapa
+  con panel de vivos/elims, kill feed con paneles.
+- **Agua** con oleaje grande y espejo real; **pasto** en matas con flores y
+  viento; **sombras** más marcadas en todos los presets.
+- Bug histórico corregido: la geometría instanciada (árboles, edificios,
+  cofres) era invisible desde la v0.1.
+
 > **Arte:** la geometría del mundo, vegetación, cofres, Carguero Nube y SFX se
 > generan 100% por código. Los modelos de personaje y armas (`assets/models/`)
 > son remakes fan-made aportados por el propietario del repositorio; si faltan,

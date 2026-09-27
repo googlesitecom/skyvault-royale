@@ -56,21 +56,21 @@ void GraphicsSettings::apply(Preset p) {
     preset = p;
     switch (p) {
         case Preset::Bajo:
-            shadowRes = 512; cloudSteps = 0;  renderScale = 0.60f;
+            shadowRes = 1024; cloudSteps = 0;  renderScale = 0.60f;
             bloom = false; godRays = 0;    vignette = 0.25f; grain = 0.02f;  chroma = 0.0f;
-            shadowMix = 0.45f; waterReflection = false; break;
+            shadowMix = 0.60f; waterReflection = false; break;
         case Preset::Medio:
             shadowRes = 2048; cloudSteps = 12; renderScale = 0.85f;
             bloom = true;  godRays = 0.0f; vignette = 0.30f; grain = 0.025f; chroma = 0.4f;
-            shadowMix = 0.50f; break;
+            shadowMix = 0.74f; break;
         case Preset::Alto:
             shadowRes = 4096; cloudSteps = 20; renderScale = 1.0f;
             bloom = true;  godRays = 0.35f; vignette = 0.35f; grain = 0.03f; chroma = 0.6f;
-            shadowMix = 0.55f; break;
+            shadowMix = 0.82f; break;
         case Preset::Ludos:
             shadowRes = 4096; cloudSteps = 28; renderScale = 1.0f;
             bloom = true;  godRays = 0.55f; vignette = 0.40f; grain = 0.035f; chroma = 0.8f;
-            shadowMix = 0.62f; break;
+            shadowMix = 0.90f; break;
     }
 }
 
@@ -88,6 +88,9 @@ bool Renderer::init(i32 viewportW, i32 viewportH) {
     const Shader::Define defGrass[] = { {"INSTANCED", 1}, {"VERTEXCOLOR", 1}, {"WIND", 1}, {"WIND_GRASS", 1} };
     const Shader::Define defGltf[]  = { {"HAS_BASETEX", 1}, {"HAS_NORMALTEX", 1}, {"HAS_MRTEX", 1} };
     const Shader::Define defInstS[] = { {"INSTANCED", 1} };
+    const Shader::Define defSkinT[] = { {"SKINNED", 1}, {"HAS_BASETEX", 1}, {"HAS_NORMALTEX", 1}, {"HAS_MRTEX", 1} };
+    const Shader::Define defSkinV[] = { {"SKINNED", 1}, {"VERTEXCOLOR", 1} };
+    const Shader::Define defSkinS[] = { {"SKINNED", 1} };
 
     // frags que necesitan las funciones comunes (ruido, PBR, sombras) van
     // precedidas de CommonFrag; CommonFrag declara `out vec4 FragColor`.
@@ -101,8 +104,11 @@ bool Renderer::init(i32 viewportW, i32 viewportH) {
     ok &= m_pbrVC.load(shaders::PbrVert, pbrFrag.c_str(), defVC, 1);
     ok &= m_pbrInst.load(shaders::PbrVert, pbrFrag.c_str(), defInst, 3);
     ok &= m_pbrGrass.load(shaders::PbrVert, pbrFrag.c_str(), defGrass, 4);
+    ok &= m_pbrSkinTex.load(shaders::PbrVert, pbrFrag.c_str(), defSkinT, 4);
+    ok &= m_pbrSkinVC.load(shaders::PbrVert, pbrFrag.c_str(), defSkinV, 2);
     ok &= m_shadowStatic.load(shaders::ShadowVert, shaders::ShadowFrag);
     ok &= m_shadowInst.load(shaders::ShadowVert, shaders::ShadowFrag, defInstS, 1);
+    ok &= m_shadowSkin.load(shaders::ShadowVert, shaders::ShadowFrag, defSkinS, 1);
     ok &= m_sky.load(shaders::SkyVert, skyFrag.c_str());
     ok &= m_water.load(shaders::WaterVert, waterFrag.c_str());
     ok &= m_storm.load(shaders::StormVert, stormFrag.c_str());
@@ -193,6 +199,13 @@ bool Renderer::init(i32 viewportW, i32 viewportH) {
     glGenBuffers(1, &m_instanceVbo);
     glGenBuffers(1, &m_uiVbo);
     glGenVertexArrays(1, &m_uiVao);
+
+    // textura de articulaciones: 4 texels RGBA32F por articulacion
+    {
+        std::vector<f32> zero((usize)MaxSkinJoints * 4 * 4, 0.0f);
+        m_jointTex.create2D((i32)MaxSkinJoints * 4, 1, TexFormat::RGBA32F,
+                             zero.data(), false, true);
+    }
     // VAO de UI: aPos(0)=2f, aUV(2)=2f, aColor(4)=4f — UiVert = 8 floats
     glBindVertexArray(m_uiVao);
     glBindBuffer(GL_ARRAY_BUFFER, m_uiVbo);
@@ -216,6 +229,7 @@ void Renderer::shutdown() {
     m_fullscreenTri.destroy(); m_waterPlane.destroy();
     m_stormCylinder.destroy(); m_particleQuad.destroy();
     m_fontTex.destroy();
+    m_jointTex.destroy();
     if (m_instanceVbo) glDeleteBuffers(1, &m_instanceVbo);
     if (m_particleVbo) glDeleteBuffers(1, &m_particleVbo);
     if (m_uiVbo)       glDeleteBuffers(1, &m_uiVbo);
@@ -291,13 +305,37 @@ void Renderer::beginFrame(const Camera& cam, const Env& env) {
     m_instanced.clear();
     m_particlesAdd.clear();
     m_particlesAlpha.clear();
+    m_skinStorage.clear();
+    m_skinStorage.push_back(mat4(1));   // offset 0 reservado = sin piel
     m_stormVisible = false;
     static Camera s_cam; s_cam = cam; m_frameCam = &s_cam;
     static Env s_env; s_env = env; m_frameEnv = &s_env;
 }
 
 void Renderer::drawMesh(const Mesh& mesh, const mat4& model, const Material& mat) {
-    m_opaque.push_back({&mesh, model, mat});
+    m_opaque.push_back({&mesh, model, mat, 0, 0});
+}
+
+void Renderer::drawSkinned(const Mesh& mesh, const mat4& model, const Material& mat,
+                           const mat4* skinMatrices, u32 jointCount) {
+    if (jointCount == 0 || jointCount > MaxSkinJoints) {
+        drawMesh(mesh, model, mat);
+        return;
+    }
+    const u32 off = (u32)m_skinStorage.size();
+    m_skinStorage.insert(m_skinStorage.end(), skinMatrices,
+                         skinMatrices + jointCount);
+    m_opaque.push_back({&mesh, model, mat, off, jointCount});
+}
+
+void Renderer::uploadJoints(const mat4* skin, u32 count) {
+    using namespace gl;
+    // siempre en la unidad 7 (0=baseTex, 5=normal, 6=MR, 1-4=sombras):
+    // subir sin fijar la unidad pisaria la textura base activa
+    glActiveTexture(GL_TEXTURE7);
+    glBindTexture(GL_TEXTURE_2D, m_jointTex.tex);
+    m_jointTex.uploadRowsF32(0, 0, (i32)count * 4, 1,
+                             reinterpret_cast<const f32*>(skin));
 }
 void Renderer::drawInstances(const Mesh& mesh, const InstanceData* list, u32 count,
                              const Material& mat, bool castShadows) {
@@ -382,10 +420,22 @@ void Renderer::renderShadowPasses() {
 
         m_shadowStatic.use();
         m_shadowStatic.setMat4("uLightVP", lvp);
+        m_shadowSkin.use();
+        m_shadowSkin.setMat4("uLightVP", lvp);
+        m_shadowSkin.setU1i("uJoints", 7);
         for (const auto& dc : m_opaque) {
-            m_shadowStatic.setMat4("uModel", dc.model);
-            glBindVertexArray(dc.mesh->vao);
-            glDrawElements(GL_TRIANGLES, dc.mesh->indexCount, GL_UNSIGNED_INT, nullptr);
+            if (dc.skinCount > 0) {
+                glActiveTexture(GL_TEXTURE7);
+                glBindTexture(GL_TEXTURE_2D, m_jointTex.tex);
+                uploadJoints(m_skinStorage.data() + dc.skinOffset, dc.skinCount);
+                m_shadowSkin.setMat4("uModel", dc.model);
+                glBindVertexArray(dc.mesh->vao);
+                glDrawElements(GL_TRIANGLES, dc.mesh->indexCount, GL_UNSIGNED_INT, nullptr);
+            } else {
+                m_shadowStatic.setMat4("uModel", dc.model);
+                glBindVertexArray(dc.mesh->vao);
+                glDrawElements(GL_TRIANGLES, dc.mesh->indexCount, GL_UNSIGNED_INT, nullptr);
+            }
         }
         m_shadowInst.use();
         m_shadowInst.setMat4("uLightVP", lvp);
@@ -405,6 +455,11 @@ void Renderer::renderShadowPasses() {
 
 void Renderer::uploadInstances(const InstanceBatch& b) {
     using namespace gl;
+    // CRITICO: los atributos de instancia (aInstance/aInstanceColor) se
+    // graban en el VAO ACTIVO. Hay que fijar el VAO de la malla ANTES de
+    // llamar a glVertexAttribPointer, o toda la geometria instanciada
+    // (arboles, edificios, pedestal, cofres...) queda invisible.
+    glBindVertexArray(b.mesh->vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_instanceVbo);
     glBufferData(GL_ARRAY_BUFFER, (isize)b.list.size() * sizeof(InstanceData),
                  b.list.data(), GL_DYNAMIC_DRAW);
@@ -478,8 +533,54 @@ void Renderer::renderScenePass(const Camera& cam, const Env& env, const mat4& vi
     m_pbr.setU1i("uBaseTex", 0);
     m_pbr.setU1i("uNormalTex", 5);
     m_pbr.setU1i("uMetalRoughTex", 6);
+    // variantes con esqueleto
+    m_pbrSkinTex.use();
+    setPbrCommonUniforms(m_pbrSkinTex, cam, env, viewProj);
+    bindShadowTextures(m_pbrSkinTex, 1, mainPass ? m_gfx.shadowMix : 0.0f);
+    m_pbrSkinTex.setU1i("uBaseTex", 0);
+    m_pbrSkinTex.setU1i("uNormalTex", 5);
+    m_pbrSkinTex.setU1i("uMetalRoughTex", 6);
+    m_pbrSkinTex.setU1i("uJoints", 7);
+    m_pbrSkinVC.use();
+    setPbrCommonUniforms(m_pbrSkinVC, cam, env, viewProj);
+    bindShadowTextures(m_pbrSkinVC, 1, mainPass ? m_gfx.shadowMix : 0.0f);
+    m_pbrSkinVC.setU1i("uJoints", 7);
+    glActiveTexture(GL_TEXTURE7);
+    glBindTexture(GL_TEXTURE_2D, m_jointTex.tex);
+
     for (const auto& dc : m_opaque) {
+        if (dc.skinCount > 0) {
+            uploadJoints(m_skinStorage.data() + dc.skinOffset, dc.skinCount);
+            if (dc.mat.baseTex) {
+                m_pbrSkinTex.use();
+                m_pbrSkinTex.setMat4("uModel", dc.model);
+                dc.mat.baseTex->bind(0);
+                if (dc.mat.normalTex) dc.mat.normalTex->bind(5);
+                else { glActiveTexture(GL_TEXTURE5); glBindTexture(GL_TEXTURE_2D, g_normalFlat.tex); }
+                if (dc.mat.mrTex) dc.mat.mrTex->bind(6);
+                else { glActiveTexture(GL_TEXTURE6); glBindTexture(GL_TEXTURE_2D, g_mrDefault.tex); }
+                m_pbrSkinTex.setU4f("uTint", dc.mat.tint.r, dc.mat.tint.g, dc.mat.tint.b, dc.mat.tint.a);
+                m_pbrSkinTex.setU1f("uMetallic", dc.mat.metallic);
+                m_pbrSkinTex.setU1f("uRough", dc.mat.rough);
+                m_pbrSkinTex.setU1f("uEmissive", dc.mat.emissive);
+                m_pbrSkinTex.setU1f("uGhost", dc.mat.ghost);
+                m_pbrSkinTex.setU3fv("uGhostColor", &dc.mat.ghostColor[0]);
+            } else {
+                m_pbrSkinVC.use();
+                m_pbrSkinVC.setMat4("uModel", dc.model);
+                m_pbrSkinVC.setU4f("uTint", dc.mat.tint.r, dc.mat.tint.g, dc.mat.tint.b, dc.mat.tint.a);
+                m_pbrSkinVC.setU1f("uMetallic", dc.mat.metallic);
+                m_pbrSkinVC.setU1f("uRough", dc.mat.rough);
+                m_pbrSkinVC.setU1f("uEmissive", dc.mat.emissive);
+                m_pbrSkinVC.setU1f("uGhost", dc.mat.ghost);
+                m_pbrSkinVC.setU3fv("uGhostColor", &dc.mat.ghostColor[0]);
+            }
+            glBindVertexArray(dc.mesh->vao);
+            glDrawElements(GL_TRIANGLES, dc.mesh->indexCount, GL_UNSIGNED_INT, nullptr);
+            continue;
+        }
         if (!dc.mat.baseTex) continue;
+        m_pbr.use();
         m_pbr.setMat4("uModel", dc.model);
         dc.mat.baseTex->bind(0);
         if (dc.mat.normalTex) dc.mat.normalTex->bind(5);
@@ -501,6 +602,7 @@ void Renderer::renderScenePass(const Camera& cam, const Env& env, const mat4& vi
     setPbrCommonUniforms(m_pbrVC, cam, env, viewProj);
     bindShadowTextures(m_pbrVC, 1, mainPass ? m_gfx.shadowMix : 0.0f);
     for (const auto& dc : m_opaque) {
+        if (dc.skinCount > 0) continue;      // ya dibujado arriba (skinned)
         if (dc.mat.baseTex) continue;
         m_pbrVC.setMat4("uModel", dc.model);
         m_pbrVC.setU4f("uTint", dc.mat.tint.r, dc.mat.tint.g, dc.mat.tint.b, dc.mat.tint.a);
@@ -637,6 +739,12 @@ void Renderer::renderStormPass(const Camera& cam, const Env& env) {
     m_storm.setU3fv("uStormColor", &env.stormColor[0]);
     m_storm.setU3fv("uFogColor", &env.fogColor[0]);
     m_storm.setU1f("uTime", env.time);
+    // perimetro del muro (para espaciar las lineas verticales en metros)
+    {
+        const vec3 sc = vec3(length(m_stormModel[0]), 1.0f,
+                             length(m_stormModel[2]));
+        m_storm.setU1f("uCircumference", TAU_F * std::max(sc.x, 0.01f));
+    }
     glBindVertexArray(m_stormCylinder.vao);
     glDrawElements(GL_TRIANGLES, m_stormCylinder.indexCount, GL_UNSIGNED_INT, nullptr);
     glDepthMask(GL_TRUE);

@@ -11,18 +11,20 @@ namespace sv {
 // ---------------------------------------------------------------------------
 const std::vector<PoiDef>& Terrain::poiTable() {
     static const std::vector<PoiDef> table = {
-        { "La Bóveda",      {   0,    0}, 260.0f, 3 },  // pico volcanico central
-        { "Puerto Pinchazo",{ 980, 1120}, 150.0f, 4 },
-        { "Aldea Cobalto",  {-1050,  620}, 140.0f, 5 },
-        { "Molino Rojo",    { 720, -980}, 130.0f, 3 },
-        { "Fábrica Tormenta",{-1250, -830},160.0f, 4 },
-        { "Bahía Cálida",   { 1500,  -60}, 140.0f, 3 },
-        { "Pueblo Cima",    { -600, 1450}, 120.0f, 5 },
-        { "Selva Umbría",   { 1350, 1350}, 150.0f, 2 },
-        { "Camping Faro",   {-1550,  220}, 120.0f, 4 },
-        { "Cañón Eco",      {  350,-1550}, 130.0f, 2 },
-        { "Laguna Susurro", { -950, -1450},120.0f, 3 },
-        { "Torres Gemelas", {  60,   730}, 110.0f, 6 },
+        { "La Bóveda",      {   0,    0}, 280.0f, 3 },  // pico volcanico central
+        { "Puerto Pinchazo",{ 980, 1120}, 230.0f, 6 },  // CIUDAD portuaria
+        { "Aldea Cobalto",  {-1050,  620}, 170.0f, 5 },
+        { "Molino Rojo",    { 720, -980}, 160.0f, 4 },
+        { "Fábrica Tormenta",{-1250, -830},230.0f, 6 }, // CIUDAD industrial
+        { "Bahía Cálida",   { 1500,  -60}, 160.0f, 4 },
+        { "Pueblo Cima",    { -600, 1450}, 170.0f, 5 },
+        { "Selva Umbría",   { 1350, 1350}, 165.0f, 3 },
+        { "Camping Faro",   {-1550,  220}, 160.0f, 4 },
+        { "Cañón Eco",      {  350,-1550}, 165.0f, 3 },
+        { "Laguna Susurro", { -950, -1450},160.0f, 4 },
+        { "Torres Gemelas", {  60,   730}, 250.0f, 7 },  // CIUDAD principal
+        { "Vértigo Sur",    { 450, -1000}, 220.0f, 6 },  // CIUDAD del sur
+        { "Costa Brava",    { 900,  -700}, 150.0f, 4 },  // pueblo costero nuevo
     };
     return table;
 }
@@ -105,17 +107,17 @@ f32 Terrain::height(f32 x, f32 z) const {
     const f32 wz = m_warpNoise.fbm2(x * 0.0012f + 5.2f, z * 0.0012f + 1.3f, 3) - 0.5f;
     const f32 px = x + wx * 220.0f, pz = z + wz * 220.0f;
 
-    // falloff radial (isla)
+    // falloff radial (isla grande: costa a ~1.2 km del centro)
     const f32 d = std::sqrt(px * px + pz * pz);
-    const f32 t = clamp01(1.0f - d / (Half * 0.92f));
+    const f32 t = clamp01(1.0f - d / 2450.0f);
     const f32 falloff = t * t * (3.0f - 2.0f * t);   // smoothstep
 
-    // colinas base FBM
-    f32 h = (m_heightNoise.fbm2(px * 0.00085f, pz * 0.00085f, 5) - 0.30f) * 300.0f;
+    // colinas base FBM (isla grande ~2.2 km: mas tierra firme)
+    f32 h = (m_heightNoise.fbm2(px * 0.00058f, pz * 0.00058f, 5) - 0.14f) * 380.0f;
 
     // crestas (montañas en el cuadrante noroeste)
-    const f32 ridge = m_heightNoise.ridged2(px * 0.0006f + 3.7f, pz * 0.0006f - 2.1f, 4);
-    h += ridge * 150.0f * clamp01((px - pz + 1400.0f) / 2800.0f);
+    const f32 ridge = m_heightNoise.ridged2(px * 0.00045f + 3.7f, pz * 0.00045f - 2.1f, 4);
+    h += ridge * 190.0f * clamp01((px - pz + 1400.0f) / 2800.0f);
 
     // pico central: el volcan "La Bóveda"
     const f32 dc = std::sqrt(x * x + z * z);
@@ -125,7 +127,7 @@ f32 Terrain::height(f32 x, f32 z) const {
     h -= smoothstep(150.0f, 40.0f, dc) * 95.0f;
 
     h *= falloff;
-    h -= (1.0f - falloff) * 55.0f;    // el borde se hunde bajo el mar
+    h -= (1.0f - falloff) * 70.0f;    // el borde se hunde bajo el mar
 
     // aplanar POIs (mesetas jugables)
     for (const auto& poi : m_pois) {

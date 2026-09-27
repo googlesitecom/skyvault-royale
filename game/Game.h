@@ -55,6 +55,10 @@ struct WeaponDef {
     f32 modelScale = 1.0f;
     vec3 modelOffset{0, 0, 0};
     f32 modelYaw = 0.0f;
+    // colocacion relativa a la MANO derecha (pose esqueletica)
+    vec3 handYawPitchRoll{0, 0, 0};   // correccion de orientacion (rad)
+    vec3 grip{0, 0, 0};               // agarre: desplazamiento en espacio de mano
+    bool twoHanded = true;
 };
 
 struct WeaponInstance {
@@ -78,6 +82,8 @@ struct Bot {
     u8 weaponRarity = 0;
     bool onGround = false;
     f32 noiseT = 0;
+    // animacion
+    f32 animPhase = 0, animSpeedK = 0, animT = 0;
 };
 
 struct Chest { vec3 pos; bool opened = false; };
@@ -158,7 +164,6 @@ private:
     void emitParticle(const vec3& pos, const vec3& vel, f32 life, f32 size,
                       vec4 color, bool additive, f32 stretch = 0);
     void addKillFeed(const std::string& text);
-    [[nodiscard]] static mat4 weaponModelMatrix(WeaponKind k, const mat4& playerMat);
     [[nodiscard]] BuildPiece ghostPiece() const;
     [[nodiscard]] bool buildPlacementValid(const BuildPiece& p) const;
     void rebuildCollision();
@@ -167,6 +172,17 @@ private:
     void renderHud();
     void renderMenu();
     void renderEndScreen();
+
+    // animacion de personajes (esqueleto GLB + ciclo procedural)
+    void buildCharacterPose(const vec3& pos, f32 yaw, f32 speedK, f32 phase,
+                            f32 idleT, bool airborne, bool gliding, f32 pitch,
+                            WeaponKind weapon, f32 pickSwing, f32 reloadK,
+                            GltfPose& pose, std::vector<mat4>& skin,
+                            mat4& handMat) const;
+    void drawCharacter(const vec3& pos, f32 yaw, const GltfPose& pose,
+                       const std::vector<mat4>& skin, const mat4& handMat,
+                       vec4 tint, WeaponKind weapon, u8 rarity, f32 pickSwing,
+                       f32 reloadK, f32 recoilK, bool drawWeapon = true);
 
     // generacion procedural
     [[nodiscard]] Mesh makeLeafyTreeMesh();
@@ -179,6 +195,7 @@ private:
     [[nodiscard]] Mesh makeGrassMesh();
     [[nodiscard]] Mesh makeAirshipMesh();
     [[nodiscard]] Mesh makeRoofMesh();
+    [[nodiscard]] Mesh makeGliderMesh();
     void generateWorldContent();
     void bakeHeightGrid();
     [[nodiscard]] f32 gridHeight(f32 x, f32 z) const;
@@ -213,7 +230,7 @@ private:
 
     // geometria procedural
     Mesh m_treeLeafyMesh, m_treePineMesh, m_rockMesh, m_chestMesh, m_boxMesh;
-    Mesh m_grassMesh, m_airshipMesh, m_roofMesh;
+    Mesh m_grassMesh, m_airshipMesh, m_roofMesh, m_gliderMesh;
     struct RoofPiece { vec3 c, s; vec4 col; };
     std::vector<RoofPiece> m_roofPieces;
     std::vector<InstanceData> m_treeInstances;   // visibles por frame
@@ -263,6 +280,15 @@ private:
     bool m_mouseWasCaptured = false;
     bool m_debugLandRequested = false;
 
+    // animacion del jugador (ciclo procedural + idle del GLB)
+    f32 m_animPhase = 0;        // fase del ciclo de carrera
+    f32 m_animSpeedK = 0;       // velocidad suavizada 0..1
+    f32 m_animIdleT = 0;        // tiempo acumulado del clip idle
+    f32 m_animBlend = 0;        // 0 idle clip, 1 locomocion
+    f32 m_landDip = 0;          // flexion al aterrizar
+    f32 m_recoil = 0;           // patada de disparo
+    f32 m_camFov = 70.0f;       // fov suavizado (sprint/ads)
+
     // bots
     std::vector<Bot> m_bots;
 
@@ -297,6 +323,21 @@ private:
     std::vector<UiButton> m_uiButtons;
     i32 m_menuPresetSel = 1;   // indice del preset (0..3, 1=Medio por defecto)
     bool m_menuHoverSound = false;
+
+    // lobby del menu: pedestal flotante con el personaje al centro
+    vec3 m_menuCharPos{0, 420.0f, 0};
+    // indices de articulaciones del rig (cache al cargar el GLB)
+    i32 m_jHandR = -1, m_jHandL = -1, m_jHead = -1;
+    i32 m_jThighL = -1, m_jThighR = -1, m_jCalfL = -1, m_jCalfR = -1;
+    i32 m_jUpperarmL = -1, m_jUpperarmR = -1, m_jLowerarmL = -1, m_jLowerarmR = -1;
+    i32 m_jSpine01 = -1, m_jSpine02 = -1, m_jSpine03 = -1, m_jPelvis = -1;
+    i32 m_jNeck = -1, m_jClavicleL = -1, m_jClavicleR = -1;
+    i32 m_jFootL = -1, m_jFootR = -1;
+    u32 m_idleClip = 0;         // clip de idle embebido del GLB
+    // poses del frame (jugador + menu)
+    GltfPose m_playerPose, m_menuPose;
+    std::vector<mat4> m_playerSkin, m_menuSkin;
+    mat4 m_playerHandMat{1}, m_menuHandMat{1};
 };
 
 Game& gameInstance();
