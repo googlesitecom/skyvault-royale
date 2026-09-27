@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>SKYVAULT Royale - La Bóveda</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b0e1a; }
+  #canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: block; outline: none; image-rendering: auto;
+  }
+  #overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; color: #e8ecf8;
+    font-family: 'Segoe UI', system-ui, sans-serif; text-align: center;
+    background: radial-gradient(ellipse at center, #17203d 0%, #0b0e1a 75%);
+    z-index: 10; transition: opacity .5s; padding: 20px;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  #title { font-size: clamp(34px, 7vw, 84px); font-weight: 900; letter-spacing: .08em;
+           color: #ffd24a; text-shadow: 0 4px 30px rgba(255, 180, 40, .35); margin: 0; }
+  #subtitle { color: #7fb4ff; font-size: clamp(16px, 3vw, 30px); font-weight: 700;
+              letter-spacing: .35em; margin: 4px 0 28px; }
+  #barWrap { width: min(420px, 70vw); height: 10px; border-radius: 6px;
+             background: rgba(255,255,255,.12); overflow: hidden; }
+  #bar { height: 100%; width: 0%; border-radius: 6px;
+         background: linear-gradient(90deg, #ffd24a, #ff9d3c); transition: width .2s; }
+  #status { margin-top: 14px; font-size: 14px; color: #9aa7c7; }
+  #err {
+    position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 50;
+    background: rgba(120, 20, 20, .92); color: #ffd9d9; padding: 10px 14px;
+    border-radius: 8px; font: 13px/1.5 monospace; display: none; white-space: pre-wrap;
+    max-height: 40%; overflow: auto;
+  }
+  #hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+          color: rgba(232,236,248,.75); font: 13px 'Segoe UI', sans-serif;
+          z-index: 5; pointer-events: none; text-shadow: 0 1px 3px #000; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1"></canvas>
+<div id="hint" hidden></div>
+<div id="overlay">
+  <h1 id="title">SKYVAULT ROYALE</h1>
+  <div id="subtitle">ISLA LA BÓVEDA</div>
+  <div id="barWrap"><div id="bar"></div></div>
+  <div id="status">Descargando datos de la isla...</div>
+</div>
+<div id="err"></div>
+<script>
+  var statusElement = document.getElementById('status');
+  var progressElement = document.getElementById('bar');
+  var overlay = document.getElementById('overlay');
+  var errBox = document.getElementById('err');
+  var hint = document.getElementById('hint');
+
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    preRun: [],
+    postRun: [],
+    setStatus: function(text) {
+      if (text) statusElement.textContent = text;
+      var m = text && text.match(/(\d+)\/(\d+)/);
+      if (m) progressElement.style.width = (parseInt(m[1]) / parseInt(m[2]) * 100) + '%';
+    },
+    onRuntimeInitialized: function() {
+      setTimeout(function() {
+        overlay.classList.add('hidden');
+        hint.hidden = false;
+        hint.textContent = 'Haz clic en la pantalla para capturar el ratón — ESC lo libera';
+        setTimeout(function() { hint.hidden = true; }, 8000);
+      }, 250);
+    },
+    print: function(t) { console.log(t); },
+    printErr: function(t) { console.warn(t); },
+  };
+
+  window.addEventListener('error', function(e) {
+    errBox.style.display = 'block';
+    errBox.textContent += (e.message || 'Error') + '\n  en ' + (e.filename || '?') + ':' + (e.lineno || '?') + '\n';
+  });
+  window.addEventListener('unhandledrejection', function(e) {
+    errBox.style.display = 'block';
+    errBox.textContent += 'Promesa rechazada: ' + (e.reason && e.reason.message ? e.reason.message : e.reason) + '\n';
+  });
+  document.addEventListener('pointerlockchange', function() {
+    hint.hidden = !document.pointerLockElement;
+  });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

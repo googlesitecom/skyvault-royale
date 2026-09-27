@@ -1,0 +1,35 @@
+name: CI (build nativo + tests del motor)
+
+# Compila el objetivo de escritorio (OpenGL 4.6) y ejecuta los tests CPU
+# del motor (189 checks). La build web la cubre el workflow "pages".
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar
+        uses: actions/checkout@v4
+
+      - name: Dependencias (cabeceras X11 para GLFW)
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libx11-dev libxext-dev libxfixes-dev libxrender-dev
+          libxcursor-dev libxrandr-dev libxi-dev libxinerama-dev
+
+      - name: Configurar
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+      - name: Compilar
+        run: cmake --build build -j "$(nproc)"
+
+      - name: Tests del motor
+        run: ./build/sv_tests
