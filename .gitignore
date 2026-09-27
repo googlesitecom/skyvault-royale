@@ -1,2 +1,13 @@
-skills/
+build/
+build-*/
+deps/
+*.o
+*.a
+*.zip
+.DS_Store
+.vscode/
+.idea/
+emsdk/
+.emscripten
 node_modules/
+__pycache__/

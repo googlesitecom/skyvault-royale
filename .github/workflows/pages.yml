@@ -51,6 +51,7 @@ jobs:
           cp build-web/skyvault.html site/index.html
           cp build-web/skyvault.js   site/
           cp build-web/skyvault.wasm site/
+          cp build-web/skyvault.data site/
 
       - name: Configurar Pages
         uses: actions/configure-pages@v5
